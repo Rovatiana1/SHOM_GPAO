@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Système de Gestion de Lots</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/animejs/lib/anime.iife.min.js"></script>
+    <script src="https://unpkg.com/feather-icons"></script>
+    <style>
+        :root {
+            --primary-color: #10b981;
+            --primary-dark: #059669;
+            --primary-light: #a7f3d0;
+            --accent-color: #047857;
+        }
+        
+        .sidebar {
+            transition: all 0.3s ease;
+        }
+        
+        .progress-bar {
+            transition: width 0.5s ease-in-out;
+        }
+        
+        .card-hover {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .status-en-cours {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+        
+        .status-termine {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+        
+        .status-en-attente {
+            background-color: #e5e7eb;
+            color: #374151;
+        }
+        
+        .status-erreur {
+            background-color: #fee2e2;
+            color: #b91c1c;
+        }
+        
+        .timeline-item {
+            position: relative;
+            padding-left: 2rem;
+            padding-bottom: 2.5rem;
+        }
+        
+        .timeline-item:before {
+            content: '';
+            position: absolute;
+            left: 7px;
+            top: 0.5rem;
+            height: 100%;
+            width: 2px;
+            background-color: #e5e7eb;
+        }
+        
+        .timeline-item:last-child:before {
+            display: none;
+        }
+        
+        .timeline-dot {
+            position: absolute;
+            left: 0;
+            top: 0.25rem;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background-color: var(--primary-color);
+            z-index: 10;
+        }
+        
+        .login-bg {
+            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Page d'authentification -->
+    <div id="login-page" class="min-h-screen login-bg flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden w-full max-w-md" data-aos="fade-up">
+            <div class="bg-green-50 py-6 px-4 border-b border-green-100">
+                <div class="flex justify-center">
+                    <div class="bg-green-100 p-3 rounded-full">
+                        <i data-feather="lock" class="text-green-600 w-8 h-8"></i>
+                    </div>
+                </div>
+                <h2 class="mt-4 text-center text-2xl font-bold text-gray-800">Connexion au système</h2>
+                <p class="mt-1 text-center text-sm text-gray-600">Authentification LDAPS</p>
+            </div>
+            
+            <form class="px-8 py-6" id="login-form">
+                <div class="mb-4">
+                    <label for="username" class="block text-sm font-medium text-gray-700 mb-1">Identifiant</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i data-feather="user" class="h-5 w-5 text-gray-400"></i>
+                        </div>
+                        <input type="text" id="username" name="username" class="pl-10 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 py-2 px-3 border" placeholder="Votre identifiant">
+                    </div>
+                    <p class="mt-1 text-xs text-red-600 hidden" id="username-error">Veuillez saisir un identifiant valide</p>
+                </div>
+                
+                <div class="mb-6">
+                    <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Mot de passe</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i data-feather="key" class="h-5 w-5 text-gray-400"></i>
+                        </div>
+                        <input type="password" id="password" name="password" class="pl-10 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 py-2 px-3 border" placeholder="Votre mot de passe">
+                    </div>
+                    <p class="mt-1 text-xs text-red-600 hidden" id="password-error">Le mot de passe est requis</p>
+                </div>
+                
+                <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
+                    Se connecter
+                </button>
+                
+                <div class="mt-4 text-center">
+                    <a href="#" class="text-sm text-green-600 hover:text-green-800">Problème de connexion ?</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Interface principale (cachée initialement) -->
+    <div id="main-app" class="hidden">
+        <!-- Barre de navigation -->
+        <nav class="bg-white shadow-md">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0 flex items-center">
+                            <i data-feather="database" class="h-8 w-8 text-green-600"></i>
+                            <span class="ml-2 text-xl font-semibold text-gray-800">Gestion de Lots</span>
+                        </div>
+                        <div class="hidden md:ml-6 md:flex md:space-x-8">
+                            <a href="#" class="border-green-500 text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium" data-page="dashboard">
+                                Tableau de bord
+                            </a>
+                            <a href="#" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium" data-page="configuration">
+                                Configuration
+                            </a>
+                            <a href="#" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium" data-page="lots">
+                                Gestion des lots
+                            </a>
+                            <a href="#" class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium" data-page="traitement">
+                                Traitement
+                            </a>
+                        </div>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <button type="button" id="pause-btn" class="relative inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-yellow-500 shadow-sm hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-400">
+                                <i data-feather="pause" class="h-4 w-4 mr-1"></i> Pause
+                            </button>
+                        </div>
+                        <div class="ml-3 relative">
+                            <div>
+                                <button type="button" class="bg-white rounded-full flex text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500" id="user-menu-button">
+                                    <span class="sr-only">Ouvrir le menu utilisateur</span>
+                                    <div class="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
+                                        <i data-feather="user" class="h-5 w-5 text-green-600"></i>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Contenu principal -->
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <!-- Tableau de bord -->
+            <div id="dashboard-page" class="page-content">
+                <div class="mb-6">
+                    <h1 class="text-2xl font-bold text-gray-800">Tableau de bord</h1>
+                    <p class="text-gray-600">Vue d'ensemble du système de gestion de lots</p>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white rounded-lg shadow card-hover p-6">
+                        <div class="flex items-center">
+                            <div class="p-3 rounded-lg bg-green-100">
+                                <i data-feather="package" class="h-6 w-6 text-green-600"></i>
+                            </div>
+                            <div class="ml-4">
+                                <h2 class="text-lg font-semibold text-gray-800">Lots en cours</h2>
+                                <p class="text-2xl font-bold text-gray-900">12</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-lg shadow card-hover p-6">
+                        <div class="flex items-center">
+                            <div class="p-3 rounded-lg bg-blue-100">
+                                <i data-feather="check-circle" class="h-6 w-6 text-blue-600"></i>
+                            </div>
+                            <div class="ml-4">
+                                <h2 class="text-lg font-semibold text-gray-800">Lots terminés</h2>
+                                <p class="text-2xl font-bold text-gray-900">48</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-lg shadow card-hover p-6">
+                        <div class="flex items-center">
+                            <div class="p-3 rounded-lg bg-yellow-100">
+                                <i data-feather="clock" class="h-6 w-6 text-yellow-600"></i>
+                            </div>
+                            <div class="ml-4">
+                                <h2 class="text-lg font-semibold text-gray-800">En attente</h2>
+                                <p class="text-2xl font-bold text-gray-900">5</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-lg shadow card-hover p-6">
+                        <div class="flex items-center">
+                            <div class="p-3 rounded-lg bg-red-100">
+                                <i data-feather="alert-triangle" class="h-6 w-6 text-red-600"></i>
+                            </div>
+                            <div class="ml-4">
+                                <h2 class="text-lg font-semibold text-gray-800">Erreurs</h2>
+                                <p class="text-2xl font-bold text-gray-900">2</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white rounded-lg shadow overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-100">
+                            <h2 class="text-lg font-medium text-gray-800">Activité récente</h2>
+                        </div>
+                        <div class="divide-y divide-gray-100">
+                            <div class="px-6 py-4">
+                                <div class="flex items-center">
+                                    <div class="bg-green-100 p-2 rounded-full">
+                                        <i data-feather="play" class="h-4 w-4 text-green-600"></i>
+                                    </div>
+                                    <div class="ml-4">
+                                        <h3 class="text-sm font-medium text-gray-800">Début du traitement LOT-1245</h3>
+                                        <p class="text-xs text-gray-500">Il y a 2 minutes</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="px-6 py-4">
+                                <div class="flex items-center">
+                                    <div class="bg-blue-100 p-2 rounded-full">
+                                        <i data-feather="check" class="h-4 w-4 text-blue-600"></i>
+                                    </div>
+                                    <div class="ml-4">
+                                        <h3 class="text-sm font-medium text-gray-800">Lot LOT-1244 terminé</h3>
+                                        <p class="text-xs text-gray-500">Il y a 15 minutes</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="px-6 py-4">
+                                <div class="flex items-center">
+                                    <div class="bg-yellow-100 p-2 rounded-full">
+                                        <i data-feather="pause" class="h-4 w-4 text-yellow-600"></i>
+                                    </div>
+                                    <div class="ml-4">
+                                        <h3 class="text-sm font-medium text-gray-800">Système mis en pause</h3>
+                                        <p class="text-xs text-gray-500">Il y a 30 minutes</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-lg shadow overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-100">
+                            <h2 class="text-lg font-medium text-gray-800">Progression du traitement</h2>
+                        </div>
+                        <div class="p-6">
+                            <div class="mb-4">
+                                <div class="flex justify-between text-sm font-medium text-gray-600 mb-1">
+                                    <span>LOT-1245</span>
+                                    <span>65%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-green-600 h-2 rounded-full progress-bar" style="width: 65%"></div>
+                                </div>
+                            </div>
+                            <div class="mb-4">
+                                <div class="flex justify-between text-sm font-medium text-gray-600 mb-1">
+                                    <span>LOT-1246</span>
+                                    <span>30%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-green-600 h-2 rounded-full progress-bar" style="width: 30%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm font-medium text-gray-600 mb-1">
+                                    <span>LOT-1247</span>
+                                    <span>10%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-green-600 h-2 rounded-full progress-bar" style="width: 10%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Page de configuration -->
+            <div id="configuration-page" class="page-content hidden">
+                <div class="mb-6">
+                    <h1 class="text-2xl font-bold text-gray-800">Configuration du système</h1>
+                    <p class="text-gray-600">Paramétrage des chemins et de la base de données</p>
+                </div>
+                
+                <div class="bg-white shadow rounded-lg overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-100">
+                        <h2 class="text-lg font-medium text-gray-800">Chemins d'entrée/sortie</h2>
+                    </div>
+                    <div class="p-6">
+                        <form>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label for="input-path" class="block text-sm font-medium text-gray-700 mb-1">Chemin d'entrée</label>
+                                    <div class="relative">
+                                        <input type="text" id="input-path" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 py-2 px-3 border" value="/data/input">
+                                        <button type="button" class="absolute inset-y-0 right-0 pr-3 flex items-center text-green-600 hover:text-green-800">
+                                            <i data-feather="folder" class="h-5 w-5"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label for="output-path" class="block text-sm font-medium text-gray-700 mb-1">Chemin de sortie</label>
+                                    <div class="relative">
+                                        <input type="text" id="output-path" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 py-2 px-3 border" value="/data/output">
+                                        <button type="button" class="absolute inset-y-0 right-0 pr-3 flex items-center text-green-600 hover:text-green-800">
+                                            <i data-feather="folder" class="h-5 w-5"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-6">
+                                <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                                    Enregistrer les chemins
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                
+                <div class="bg-white shadow rounded-lg overflow-hidden mt-6">
+                    <div class="px-6 py-4 border-b border-gray-100">
+                        <h2 class="text-lg font-medium text-gray-800">Configuration de la base de données</h2>
+                    </div>
+                    <div class="p-6">
+                        <form>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label for="db-host" class="block text-sm font-medium text-gray-700 mb-1">Hôte</label>
+                                    <input type="text" id="db-host" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 py-2 px-3 border" value="localhost">
+                                </div>
+                                
+                                <div>
+                                    <label for="db-port" class="block text-sm font-medium text-gray-700 mb-1">Port</label>
+                                    <input type="number" id="db-port" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 py-2 px-3 border" value="5432">
+                                </div>
+                                
+                                <div>
+                                    <label for="db-name" class="block text-sm font-medium text-gray-700 mb-1">Nom de la base</label>
+                                    <input type="text" id="db-name" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 py-2 px-3 border" value="gestion_lots">
+                                </div>
+                                
+                                <div>
+                                    <label for="db-user" class="block text-sm font-medium text-gray-700 mb-1">Utilisateur</label>
+                                    <input type="text" id="db-user" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 py-2 px-3 border" value="admin">
+                                </div>
+                                
+                                <div class="md:col-span-2">
+                                    <label for="db-password" class="block text-sm font-medium text-gray-700 mb-1">Mot de passe</label>
+                                    <input type="password" id="db-password" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 py-2 px-3 border" placeholder="••••••••">
+                                </div>
+                            </div>
+                            
+                            <div class="mt-6">
+                                <button type="button" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 mr-3">
+                                    Tester la connexion
+                                </button>
+                                <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                                    Enregistrer la configuration
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Page de gestion des lots -->
+            <div id="lots-page" class="page-content hidden">
+                <div class="mb-6">
+                    <h1 class="text-2xl font-bold text-gray-800">Gestion des lots</h1>
+                    <p class="text-gray-600">Récupération et suivi des lots de données</p>
+                </div>
+                
+                <div class="bg-white shadow rounded-lg overflow-hidden mb-6">
+                    <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+                        <h2 class="text-lg font-medium text-gray-800">Liste des lots</h2>
+                        <button type="button" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                            <i data-feather="refresh-cw" class="h-4 w-4 mr-2"></i> Récupérer un lot
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nom</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Début</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fin</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantité</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">LOT-1245</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Export Mars 2023</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="status-badge status-en-cours">En cours</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">12/04/2023 09:30</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">-</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">1,245</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                        <button class="text-green-600 hover:text-green-900 mr-3">Détails</button>
+                                        <button class="text-red-600 hover:text-red-900">Arrêter</button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">LOT-1244</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Export Février 2023</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="status-badge status-termine">Terminé</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">11/04/2023 14:15</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">11/04/2023 16:40</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">987</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                        <button class="text-green-600 hover:text-green-900">Détails</button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">LOT-1243</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Export Janvier 2023</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="status-badge status-termine">Terminé</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">10/04/2023 10:05</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">10/04/2023 12:30</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">1,532</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                        <button class="text-green-600 hover:text-green-900">Détails</button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">LOT-1246</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Export Avril 2023</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="status-badge status-en-attente">En attente</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">-</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">-</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">-</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                        <button class="text-green-600 hover:text-green-900 mr-3">Démarrer</button>
+                                        <button class="text-red-600 hover:text-red-900">Supprimer</button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="bg-white shadow rounded-lg overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-100">
+                        <h2 class="text-lg font-medium text-gray-800">Chargement des données du lot</h2>
+                    </div>
+                    <div class="p-6">
+                        <div class="mb-4">
+                            <label for="selected-lot" class="block text-sm font-medium text-gray-700 mb-1">Sélectionner un lot</label>
+                            <select id="selected-lot" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 py-2 px-3 border">
+                                <option value="">-- Sélectionner un lot --</option>
+                                <option value="LOT-1245">LOT-1245 - Export Mars 2023</option>
+                                <option value="LOT-1244">LOT-1244 - Export Février 2023</option>
+                                <option value="LOT-1243">LOT-1243 - Export Janvier 2023</option>
+                                <option value="LOT-1246">LOT-1246 - Export Avril 2023</option>
+                            </select>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Chemin source</label>
+                                <div class="flex items-center p-3 bg-gray-50 rounded-md text-sm text-gray-600">
+                                    <i data-feather="folder" class="h-4 w-4 mr-2 text-gray-400"></i>
+                                    /data/input/LOT-1245
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Chemin destination</label>
+                                <div class="flex items-center p-3 bg-gray-50 rounded-md text-sm text-gray-600">
+                                    <i data-feather="folder" class="h-4 w-4 mr-2 text-gray-400"></i>
+                                    /data/output/LOT-1245
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex justify-end">
+                            <button type="button" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                                <i data-feather="upload" class="h-4 w-4 mr-2"></i> Charger les données
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Page de traitement -->
+            <div id="traitement-page" class="page-content hidden">
+                <div class="mb-6">
+                    <h1 class="text-2xl font-bold text-gray-800">Traitement des lots</h1>
+                    <p class="text-gray-600">Suivi et gestion du traitement des données</p>
+                </div>
+                
+                <div class="bg-white shadow rounded-lg overflow-hidden mb-6">
+                    <div class="px-6 py-4 border-b border-gray-100">
+                        <h2 class="text-lg font-medium text-gray-800">Timeline du traitement</h2>
+                    </div>
+                    <div class="p-6">
+                        <div class="relative">
+                            <div class="timeline-item">
+                                <div class="timeline-dot"></div>
+                                <div class="bg-gray-50 rounded-lg p-4">
+                                    <h3 class="font-medium text-gray-800">Récupération du lot</h3>
+                                    <p class="text-sm text-gray-600 mt-1">Récupération du lot LOT-1245 depuis la source</p>
+                                    <div class="mt-2 text-xs text-gray-500">
+                                        <i data-feather="clock" class="h-3 w-3 inline mr-1"></i> 12/04/2023 09:30:15
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="timeline-item">
+                                <div class="timeline-dot"></div>
+                                <div class="bg-gray-50 rounded-lg p-4">
+                                    <h3 class="font-medium text-gray-800">Construction des chemins</h3>
+                                    <p class="text-sm text-gray-600 mt-1">Construction des chemins source et destination</p>
+                                    <div class="mt-2 text-xs text-gray-500">
+                                        <i data-feather="clock" class="h-3 w-3 inline mr-1"></i> 12/04/2023 09:31:05
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="timeline-item">
+                                <div class="timeline-dot"></div>
+                                <div class="bg-gray-50 rounded-lg p-4">
+                                    <h3 class="font-medium text-gray-800">Chargement des données</h3>
+                                    <p class="text-sm text-gray-600 mt-1">Chargement des données du lot récupéré</p>
+                                    <div class="mt-2 text-xs text-gray-500">
+                                        <i data-feather="clock" class="h-3 w-3 inline mr-1"></i> 12/04/2023 09:35:22
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="timeline-item">
+                                <div class="timeline-dot"></div>
+                                <div class="bg-gray-50 rounded-lg p-4">
+                                    <h3 class="font-medium text-gray-800">Extraction des points</h3>
+                                    <p class="text-sm text-gray-600 mt-1">Extraction des points de données</p>
+                                    <div class="flex items-center mt-2">
+                                        <div class="w-full bg-gray-200 rounded-full h-1.5 mr-2">
+                                            <div class="bg-green-600 h-1.5 rounded-full" style="width: 65%"></div>
+                                        </div>
+                                        <span class="text-xs text-gray-500">65%</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="timeline-item">
+                                <div class="timeline-dot bg-gray-300"></div>
+                                <div class="bg-gray-50 rounded-lg p-4 opacity-70">
+                                    <h3 class="font-medium text-gray-800">Ordonnancement des données</h3>
+                                    <p class="text-sm text-gray-600 mt-1">Construction et ordonnancement des données</p>
+                                </div>
+                            </div>
+                            
+                            <div class="timeline-item">
+                                <div class="timeline-dot bg-gray-300"></div>
+                                <div class="bg-gray-50 rounded-lg p-4 opacity-70">
+                                    <h3 class="font-medium text-gray-800">Temps machines</h3>
+                                    <p class="text-sm text-gray-600 mt-1">Calcul des temps machines</p>
+                                </div>
+                            </div>
+                            
+                            <div class="timeline-item">
+                                <div class="timeline-dot bg-gray-300"></div>
+                                <div class="bg-gray-50 rounded-lg p-4 opacity-70">
+                                    <h3 class="font-medium text-gray-800">Export des données</h3>
+                                    <p class="text-sm text-gray-600 mt-1">Export des données traitées</p>
+                                </div>
+                            </div>
+                            
+                            <div class="timeline-item">
+                                <div class="timeline-dot bg-gray-300"></div>
+                                <div class="bg-gray-50 rounded-lg p-4 opacity-70">
+                                    <h3 class="font-medium text-gray-800">Création nouveau lot</h3>
+                                    <p class="text-sm text-gray-600 mt-1">Création d'un nouveau lot pour l'étape "Contrôle CIBLE"</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white shadow rounded-lg overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-100">
+                            <h2 class="text-lg font-medium text-gray-800">Insertion des dates de traitement</h2>
+                        </div>
+                        <div class="p-6">
+                            <form>
+                                <div class="mb-4">
+                                    <label for="lot-id" class="block text-sm font-medium text-gray-700 mb-1">ID du lot</label>
+                                    <input type="text" id="lot-id" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 py-2 px-3 border" value="LOT-1245" readonly>
+                                </div>
+                                
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                    <div>
+                                        <label for="start-date" class="block text-sm font-medium text-gray-700 mb-1">Date/heure début</label>
+                                        <input type="datetime-local" id="start-date" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 py-2 px-3 border" value="2023-04-12T09:30">
+                                    </div>
+                                    
+                                    <div>
+                                        <label for="end-date" class="block text-sm font-medium text-gray-700 mb-1">Date/heure fin</label>
+                                        <input type="datetime-local" id="end-date" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 py-2 px-3 border">
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-4">
+                                    <label for="quantity" class="block text-sm font-medium text-gray-700 mb-1">Quantité traitée</label>
+                                    <input type="number" id="quantity" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 py-2 px-3 border" placeholder="Nombre d'éléments traités">
+                                </div>
+                                
+                                <div class="flex justify-end">
+                                    <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                                        Enregistrer les dates
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white shadow rounded-lg overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-100">
+                            <h2 class="text-lg font-medium text-gray-800">Mise à jour du statut</h2>
+                        </div>
+                        <div class="p-6">
+                            <form>
+                                <div class="mb-4">
+                                    <label for="status-lot" class="block text-sm font-medium text-gray-700 mb-1">Sélectionner un lot</label>
+                                    <select id="status-lot" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 py-2 px-3 border">
+                                        <option value="LOT-1245">LOT-1245 - Export Mars 2023</option>
+                                        <option value="LOT-1244">LOT-1244 - Export Février 2023</option>
+                                        <option value="LOT-1243">LOT-1243 - Export Janvier 2023</option>
+                                        <option value="LOT-1246">LOT-1246 - Export Avril 2023</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="mb-4">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Statut actuel</label>
+                                    <div class="p-3 bg-gray-50 rounded-md">
+                                        <span class="status-badge status-en-cours">En cours</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-4">
+                                    <label for="new-status" class="block text-sm font-medium text-gray-700 mb-1">Nouveau statut</label>
+                                    <select id="new-status" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 py-2 px-3 border">
+                                        <option value="en-cours">En cours</option>
+                                        <option value="termine">Terminé</option>
+                                        <option value="en-attente">En attente</option>
+                                        <option value="erreur">Erreur</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="flex justify-end">
+                                    <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                                        Mettre à jour le statut
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialisation des animations et icônes
+        document.addEventListener('DOMContentLoaded', function() {
+            AOS.init({
+                duration: 800,
+                easing: 'ease-in-out',
+                once: true
+            });
+            
+            feather.replace();
+            
+            // Simulation de connexion
+            const loginForm = document.getElementById('login-form');
+            const loginPage = document.getElementById('login-page');
+            const mainApp = document.getElementById('main-app');
+            
+            if (loginForm) {
+                loginForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    const username = document.getElementById('username').value;
+                    const password = document.getElementById('password').value;
+                    
+                    let isValid = true;
+                    
+                    // Validation basique
+                    if (!username) {
+                        document.getElementById('username-error').classList.remove('hidden');
+                        isValid = false;
+                    } else {
+                        document.getElementById('username-error').classList.add('hidden');
+                    }
+                    
+                    if (!password) {
+                        document.getElementById('password-error').classList.remove('hidden');
+                        isValid = false;
+                    } else {
+                        document.getElementById('password-error').classList.add('hidden');
+                    }
+                    
+                    if (isValid) {
+                        // Simulation de connexion réussie
+                        loginPage.classList.add('hidden');
+                        mainApp.classList.remove('hidden');
+                    }
+                });
+            }
+            
+            // Navigation entre les pages
+            const navLinks = document.querySelectorAll('nav a[data-page]');
+            const pageContents = document.querySelectorAll('.page-content');
+            
+            navLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    
+                    // Mettre à jour la navigation active
+                    navLinks.forEach(navLink => {
+                        navLink.classList.remove('border-green-500', 'text-gray-900');
+                        navLink.classList.add('border-transparent', 'text-gray-500');
+                    });
+                    
+                    this.classList.remove('border-transparent', 'text-gray-500');
+                    this.classList.add('border-green-500', 'text-gray-900');
+                    
+                    // Afficher la page correspondante
+                    const pageId = this.getAttribute('data-page') + '-page';
+                    pageContents.forEach(content => {
+                        content.classList.add('hidden');
+                    });
+                    
+                    document.getElementById(pageId).classList.remove('hidden');
+                });
+            });
+            
+            // Gestion du bouton pause
+            const pauseBtn = document.getElementById('pause-btn');
+            if (pauseBtn) {
+                pauseBtn.addEventListener('click', function() {
+                    const isPaused = this.classList.contains('bg-yellow-500');
+                    
+                    if (isPaused) {
+                        this.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
+                        this.classList.add('bg-green-600', 'hover:bg-green-700');
+                        this.innerHTML = '<i data-feather="pause" class="h-4 w-4 mr-1"></i> Pause';
+                        feather.replace();
+                    } else {
+                        this.classList.remove('bg-green-600', 'hover:bg-green-700');
+                        this.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+                        this.innerHTML = '<i data-feather="play" class="h-4 w-4 mr-1"></i> Reprendre';
+                        feather.replace();
+                    }
+                });
+            }
+            
+            // Animation des barres de progression
+            const progressBars = document.querySelectorAll('.progress-bar');
+            progressBars.forEach(bar => {
+                const width = bar.style.width;
+                bar.style.width = '0';
+                
+                setTimeout(() => {
+                    bar.style.width = width;
+                }, 300);
+            });
+        });
+    </script>
+</body>
+</html>

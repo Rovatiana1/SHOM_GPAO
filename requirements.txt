@@ -1,0 +1,46 @@
+# 📦 Framework & Extensions
+flask==2.3.3
+flask-RESTful==0.3.10
+flask-Cors==4.0.0
+flask-Compress==1.14
+flask-WTF==1.2.1
+flask-jwt-extended==4.6.0
+flask_migrate
+flask_socketio
+
+# 🔑 Cryptographie
+cryptography
+pycryptodome
+
+# 🛠 Utilitaires système & fichiers
+python-dotenv==1.0.1
+Werkzeug==2.3.7
+pdf2image==1.17.0
+pillow==10.3.0  # Requis par pdf2image
+
+# 🧮 Base de données
+SQLAlchemy==1.4.49
+flask-SQLAlchemy==2.5.1
+psycopg2-binary==2.9.9  # Pour PostgreSQL
+
+# 🕒 Scheduling (si utilisé via APScheduler)
+APScheduler==3.11.0
+
+# 📁 Gestion des fichiers zippés (si jamais tu en as besoin)
+zstandard==0.23.0
+
+# ✔️ Hashing
+aniso8601>=1.22.0  # Supporte Python 3.11+
+
+# Image
+PyPDF2
+
+# async tasks
+celery
+redis
+eventlet
+
+# 🐼 Facultatif : mauvais nom
+# "panda" n'est pas pandas (lib connue)
+# Si tu voulais pandas :
+# pandas==2.2.2

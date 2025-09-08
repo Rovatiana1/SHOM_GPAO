@@ -1,0 +1,70 @@
+# Python
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.pkl
+*.sqlite3
+
+# Virtual Environment
+venv/
+env/
+ENV/
+# *.env
+
+# Flask specific
+instance/
+.webassets-cache/
+
+# IDEs and Editors
+.vscode/
+.vs/
+.idea/
+*.swp
+*.swo
+*.swn
+
+# Logs
+*.log
+
+# Coverage reports
+.coverage
+.coverage.*
+
+# Migrations folder for Flask (Alembic)
+migrations/
+
+__pycache__/
+flask_session/
+
+# Pytest cache
+.pytest_cache/
+
+# Caches
+*.cache
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
+*.log
+
+# Python Wheels
+*.whl
+
+instr.md
+
+./.venv/
+
+./cbp-key
+
+# Temporary files
+report/
+uploads/
+UI/node_modules/
+UI/build/
+UI/build-dev/
+UI/build-test/
+UI/build-prod/
