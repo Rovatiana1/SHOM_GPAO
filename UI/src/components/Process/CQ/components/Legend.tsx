@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { DateInfo } from '../types';
+import { DateInfo } from '../../../../types/Image';
 
 interface LegendProps {
     uniqueDates: DateInfo[];

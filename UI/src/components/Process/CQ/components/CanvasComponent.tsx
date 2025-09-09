@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { DateInfo, DisplayMode, Metadata, Point } from '../../../../types/Image';
+import { DateInfo, DisplayMode, Metadata, Point, ReperePoint } from '../../../../types/Image';
 
 interface CanvasProps {
     image: HTMLImageElement;
@@ -14,13 +14,14 @@ interface CanvasProps {
     setMetadata: React.Dispatch<React.SetStateAction<Metadata | null>>;
     addPoint: (point: { x: number, y: number }) => void;
     addingPoint: boolean;
+    setAddingPoint: React.Dispatch<React.SetStateAction<boolean>>;
     tempPoint: { x: number; y: number } | null;
     setTempPoint: React.Dispatch<React.SetStateAction<{ x: number; y: number } | null>>;
     cancelAddingPoint: () => void;
     savePoint: (point: { x: number; y: number }) => void;
 }
 
-const POINT_RADIUS = 5;
+const POINT_RADIUS = 3;
 const HOVER_RADIUS = 8;
 
 const CanvasComponent: React.FC<CanvasProps> = ({
@@ -35,6 +36,7 @@ const CanvasComponent: React.FC<CanvasProps> = ({
     metadata,
     addPoint,
     addingPoint,
+    setAddingPoint,
     tempPoint,
     setTempPoint,
     cancelAddingPoint,
@@ -107,7 +109,7 @@ const CanvasComponent: React.FC<CanvasProps> = ({
             canvas.width = canvasWidth;
             canvas.height = canvasHeight;
 
-            if (viewTransform.scale === 1 && viewTransform.offsetX === 0 && viewTransform.offsetY === 0) {
+            if (!addingPoint && viewTransform.scale === 1 && viewTransform.offsetX === 0 && viewTransform.offsetY === 0) {
                 const initialScale = Math.min(canvas.width / image.width, canvas.height / image.height);
                 setViewTransform(prev => ({
                     ...prev,
@@ -131,6 +133,46 @@ const CanvasComponent: React.FC<CanvasProps> = ({
         ctx.scale(viewTransform.scale, viewTransform.scale);
 
         ctx.drawImage(image, 0, 0);
+
+        // Convertit "(81, 2065)" en [81, 2065]
+        const parseCoords = (coord: ReperePoint): [number, number] => {
+            const match = String(coord).match(/\(?\s*([0-9.-]+)\s*,\s*([0-9.-]+)\s*\)?/);
+            if (!match) return [0, 0];
+            return [parseFloat(match[1]!), parseFloat(match[2]!)];
+        };
+        // --- Dessin du repère si metadata existe ---
+        if (metadata) {
+            ctx.strokeStyle = "blue";
+            ctx.lineWidth = 2 / viewTransform.scale;
+
+            const [ox, oy] = parseCoords(metadata.origin_px!);
+            const [xmax,] = parseCoords(metadata.x_max_px!);
+            const [, ymax] = parseCoords(metadata.y_max_px);
+
+            // Axe X
+            ctx.beginPath();
+            ctx.moveTo(ox, oy);
+            ctx.lineTo(xmax, oy);
+            ctx.stroke();
+
+            // Axe Y
+            ctx.beginPath();
+            ctx.moveTo(ox, oy);
+            ctx.lineTo(ox, ymax);
+            ctx.stroke();
+
+            // Origine
+            ctx.fillStyle = "red";
+            ctx.beginPath();
+            ctx.arc(ox, oy, 6 / viewTransform.scale, 0, 2 * Math.PI);
+            ctx.fill();
+
+            // Optionnel : texte "O"
+            ctx.fillStyle = "black";
+            ctx.font = `${14 / viewTransform.scale}px Arial`;
+            ctx.fillText("O", ox + 8 / viewTransform.scale, oy - 8 / viewTransform.scale);
+        }
+
 
         // Dessin des lignes si displayMode === 'line'
         if (displayMode === 'line') {
@@ -197,14 +239,21 @@ const CanvasComponent: React.FC<CanvasProps> = ({
             }
             ctx.restore();
         }
-    }, [image, points, dates, viewTransform, displayMode, selectedDate, dateColorMap, uniqueDates, guides]);
+    }, [image, points, dates, viewTransform, displayMode, selectedDate, dateColorMap, uniqueDates, guides, metadata]);
 
     // Gestion des événements
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
         const handleMouseDown = (e: MouseEvent) => {
-            if (addingPoint || tempPoint) return; // Bloquer toute interaction
+            if (addingPoint) {
+                // Ne permettre que la sélection du point sur le canvas
+                const rect = canvas.getBoundingClientRect();
+                const x = (e.clientX - rect.left - viewTransform.offsetX) / viewTransform.scale;
+                const y = (e.clientY - rect.top - viewTransform.offsetY) / viewTransform.scale;
+                setTempPoint({ x, y });
+                return; // Bloquer tout le reste
+            }
 
             e.preventDefault();
             const pos = getMousePos(e);
@@ -245,7 +294,8 @@ const CanvasComponent: React.FC<CanvasProps> = ({
         };
 
         const handleMouseMove = (e: MouseEvent) => {
-            if (addingPoint || tempPoint) return; // Bloquer toute interaction
+            if (addingPoint) return; // Bloquer le drag, rotation, pan
+
             const pos = getMousePos(e);
 
             // Rotation
@@ -284,7 +334,8 @@ const CanvasComponent: React.FC<CanvasProps> = ({
         };
 
         const handleWheel = (e: WheelEvent) => {
-            if (addingPoint || tempPoint) return; // Bloquer toute interaction
+            if (addingPoint) return; // Bloquer le zoom
+
             e.preventDefault();
             const rect = canvas.getBoundingClientRect();
             const mouseX = e.clientX - rect.left;
@@ -330,32 +381,6 @@ const CanvasComponent: React.FC<CanvasProps> = ({
         setTempPoint({ x, y });
     };
 
-    useEffect(() => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
-
-        // Nettoyer
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-
-        // Dessiner les points existants
-        points.forEach(p => {
-            ctx.fillStyle = "red";
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, 5, 0, 2 * Math.PI);
-            ctx.fill();
-        });
-
-        // Dessiner le point temporaire
-        if (tempPoint) {
-            ctx.fillStyle = "blue";
-            ctx.beginPath();
-            ctx.arc(tempPoint.x, tempPoint.y, 5, 0, 2 * Math.PI);
-            ctx.fill();
-        }
-    }, [points, tempPoint, image]);
 
     return (
         <div className="w-full h-full flex items-center justify-center bg-gray-800 relative">
@@ -381,7 +406,9 @@ const CanvasComponent: React.FC<CanvasProps> = ({
             {tempPoint && (
                 <div
                     className="absolute top-0 left-0"
-                    style={{ transform: `translate(${tempPoint.x}px, ${tempPoint.y}px)` }}
+                    style={{
+                        transform: `translate(${tempPoint.x * viewTransform.scale + viewTransform.offsetX}px, ${tempPoint.y * viewTransform.scale + viewTransform.offsetY}px)`
+                    }}
                 >
                     <div className="bg-white p-2 border rounded shadow-md flex flex-col gap-2">
                         <span>Nouveau repère</span>
@@ -417,6 +444,9 @@ const CanvasComponent: React.FC<CanvasProps> = ({
                             <button
                                 onClick={() => {
                                     if (tempPoint) savePoint(tempPoint);
+                                    // Réinitialisation après ajout de point pour forcer redraw
+                                    setViewTransform(prev => ({ ...prev }));
+                                    setAddingPoint(false);  // débloquer l'image
                                     setTempPoint(null); // ferme le formulaire
                                 }}
                                 className="bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700"
@@ -424,7 +454,11 @@ const CanvasComponent: React.FC<CanvasProps> = ({
                                 Enregistrer
                             </button>
                             <button
-                                onClick={() => setTempPoint(null)}
+                                onClick={() => {
+                                    cancelAddingPoint();
+                                    setAddingPoint(false); // débloquer l'image
+                                    setTempPoint(null);
+                                }}
                                 className="bg-gray-300 px-2 py-1 rounded hover:bg-gray-400"
                             >
                                 Annuler
@@ -433,7 +467,9 @@ const CanvasComponent: React.FC<CanvasProps> = ({
                     </div>
                 </div>
             )}
-
+            {addingPoint && (
+                <div className="absolute inset-0 bg-black bg-opacity-20 pointer-events-none"></div>
+            )}
         </div>
     );
 };

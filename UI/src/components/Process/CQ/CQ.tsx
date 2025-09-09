@@ -152,6 +152,7 @@ const CQ: React.FC = () => {
         setAddingPoint(false);
         setTempPoint(null);
     };
+    
     return (
         <div className="flex h-full w-full font-sans">
             <Toolbar
@@ -188,6 +189,7 @@ const CQ: React.FC = () => {
                         setMetadata={setMetadata}
                         addPoint={addPoint}
                         addingPoint={addingPoint}
+                        setAddingPoint={setAddingPoint}
                         setTempPoint={setTempPoint}
                         tempPoint={tempPoint}
                         cancelAddingPoint={cancelAddingPoint}

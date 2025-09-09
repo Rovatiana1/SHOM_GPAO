@@ -111,18 +111,18 @@ const Toolbar: React.FC<ToolbarProps> = ({
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 mt-4">
+                    <div className="grid grid-cols-2 gap-2 mt-4">                        
+                        <button onClick={onStartAddingPoint} className="bg-blue-500 text-white py-2 px-3 rounded-md hover:bg-blue-600 flex items-center justify-center gap-2">
+                            <Icons.Add /> Nouveau
+                        </button>
                         <button onClick={() => onExport(5)} className="bg-green-600 text-white py-2 px-3 rounded-md hover:bg-green-700 flex items-center justify-center gap-2">
                             <Icons.Download /> Export
                         </button>
-                        <button onClick={onReset} className="bg-red-500 text-white py-2 px-3 rounded-md hover:bg-red-600 flex items-center justify-center gap-2">
-                            <Icons.Reset /> Reset
-                        </button>
-                        <button onClick={onShowChart} className="col-span-2 bg-purple-500 text-white py-2 px-3 rounded-md hover:bg-purple-600 flex items-center justify-center gap-2">
+                        <button onClick={onShowChart} className="bg-purple-500 text-white py-2 px-3 rounded-md hover:bg-purple-600 flex items-center justify-center gap-2">
                             <Icons.Chart /> Show Curves
                         </button>
-                        <button onClick={onStartAddingPoint} className="col-span-2 bg-blue-500 text-white py-2 px-3 rounded-md hover:bg-blue-600 flex items-center justify-center gap-2">
-                            <Icons.Add /> Nouveau Repère
+                        <button onClick={onReset} className="bg-red-500 text-white py-2 px-3 rounded-md hover:bg-red-600 flex items-center justify-center gap-2">
+                            <Icons.Reset /> Reset
                         </button>
                     </div>
 
@@ -134,3 +134,4 @@ const Toolbar: React.FC<ToolbarProps> = ({
 };
 
 export default Toolbar;
+

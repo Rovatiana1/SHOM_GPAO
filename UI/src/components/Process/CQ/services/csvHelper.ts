@@ -1,5 +1,5 @@
+import { DateInfo, Metadata, Point } from "../../../../types/Image";
 
-import { Point, Metadata, DateInfo } from '../types';
 
 const BASE_COLORS = [
     "#e6194b", "#3cb44b", "#ffe119", "#4363d8", "#f58231",
@@ -49,16 +49,16 @@ export const parseCsv = (file: File): Promise<{ points: Point[], metadata: Metad
 
             try {
                 const metadata: Metadata = {
-                    origin_px: parseCoordString(rawMetadata.origin_px),
-                    origin_value: parseCoordString(rawMetadata.origin_value),
-                    x_max_px: parseCoordString(rawMetadata.x_max_px),
-                    y_max_px: parseCoordString(rawMetadata.y_max_px),
-                    x_max_value: parseFloat(rawMetadata.x_max_value),
-                    y_max_value: parseFloat(rawMetadata.y_max_value),
-                    Img_path: rawMetadata.Img_path,
+                    origin_px: parseCoordString(rawMetadata.origin_px!),
+                    origin_value: parseCoordString(rawMetadata.origin_value!),
+                    x_max_px: parseCoordString(rawMetadata.x_max_px!),
+                    y_max_px: parseCoordString(rawMetadata.y_max_px!),
+                    x_max_value: parseFloat(rawMetadata.x_max_value!),
+                    y_max_value: parseFloat(rawMetadata.y_max_value!),
+                    Img_path: rawMetadata.Img_path!,
                 };
 
-                const header = lines[headerIndex].split(';').map(h => h.trim());
+                const header = lines[headerIndex]!.split(';').map(h => h.trim());
                 const dataLines = lines.slice(headerIndex + 1);
                 
                 const points: Point[] = [];
@@ -70,15 +70,15 @@ export const parseCsv = (file: File): Promise<{ points: Point[], metadata: Metad
                     const values = line.split(';');
                     const row: { [key: string]: string } = {};
                     header.forEach((h, i) => {
-                        row[h] = values[i];
+                        row[h] = values[i]!;
                     });
 
-                    const year = parseInt(row['Année'], 10);
-                    const month = parseInt(row['Mois'], 10);
-                    const day = parseInt(row['Jour'], 10);
-                    const hour = parseInt(row['Heure'], 10);
-                    const minute = parseInt(row['Minute'], 10);
-                    const height = parseFloat(row["Hauteur d'eau (m)"].replace(',', '.'));
+                    const year = parseInt(row['Année']!, 10);
+                    const month = parseInt(row['Mois']!, 10);
+                    const day = parseInt(row['Jour']!, 10);
+                    const hour = parseInt(row['Heure']!, 10);
+                    const minute = parseInt(row['Minute']!, 10);
+                    const height = parseFloat(row["Hauteur d'eau (m)"]!.replace(',', '.'));
 
                     if ([year, month, day, hour, minute, height].some(isNaN)) {
                        console.warn(`Skipping invalid row: ${line}`);
