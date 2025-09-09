@@ -1,14 +1,14 @@
 // components/Layout/Header.tsx
 import React, { useEffect, useState } from 'react';
-import { User } from '../../../../types/Users';
 import { Link } from 'react-router-dom';
-import { useAppContext } from '../../../../context/AppContext';
-import i18n from '../../../../i18n';
 import ProfilDropdown from './ProfilDropdown';
-import { getFilteredMenu } from '../../../../config/menu/menuConfig';
 import MenuItem from './MenuItem';
 import LanguageDropdown from './LanguageDropdown';
 import { useTranslation } from 'react-i18next';
+import { useAppContext } from '../../../context/AppContext';
+import { User } from '../../../types/Users';
+import { getFilteredMenu } from '../../../config/menu/menuConfig';
+import i18n from '../../../i18n';
 interface HeaderProps {
   user: User;
 }

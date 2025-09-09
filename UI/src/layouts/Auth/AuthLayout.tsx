@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import LoginPage from '../../Auth/LoginPage';
+import LoginPage from '../../components/Auth/LoginPage';
 
 const AuthLayout: React.FC = () => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);

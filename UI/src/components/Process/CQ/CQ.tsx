@@ -61,7 +61,7 @@ const CQ: React.FC = () => {
                 setOriginalPoints(JSON.parse(JSON.stringify(imagePoints)));
                 setDates(dates);
                 setOriginalDates(JSON.parse(JSON.stringify(dates)));
-                 // Attribution des couleurs aux dates uniques
+                // Attribution des couleurs aux dates uniques
                 const uniqueDatesArray = Array.from(new Set<string>(dates));
                 setUniqueDates(
                     uniqueDatesArray.map((d, index): DateInfo => ({
@@ -121,12 +121,37 @@ const CQ: React.FC = () => {
 
     const addPoint = useCallback((point: { x: number; y: number }) => {
         if (selectedDate) {
-            const newPoint: Point = { ...point, logicalX: 0, logicalY: 0 }; // Logical values will be updated on export
+            const newPoint: Point = { ...point, logicalX: 0, logicalY: 0 };
             setPoints(prev => [...prev, newPoint]);
             setDates(prev => [...prev, selectedDate]);
         }
     }, [selectedDate]);
 
+    const [addingPoint, setAddingPoint] = useState(false);
+    const [tempPoint, setTempPoint] = useState<{ x: number; y: number } | null>(null);
+
+    const startAddingPoint = () => {
+        if (!selectedDate) {
+            alert("Veuillez sélectionner une date avant d'ajouter un repère.");
+            return;
+        }
+        setAddingPoint(true);
+        setTempPoint(null);
+    };
+
+    const cancelAddingPoint = () => {
+        setAddingPoint(false);
+        setTempPoint(null);
+    };
+
+    const savePoint = (point: { x: number; y: number }) => {
+        if (!selectedDate) return;
+        const newPoint: Point = { ...point, logicalX: 0, logicalY: 0 };
+        setPoints(prev => [...prev, newPoint]);
+        setDates(prev => [...prev, selectedDate]);
+        setAddingPoint(false);
+        setTempPoint(null);
+    };
     return (
         <div className="flex h-full w-full font-sans">
             <Toolbar
@@ -146,6 +171,7 @@ const CQ: React.FC = () => {
                 imageElement={imageElement}
                 hasData={!!imageElement}
                 error={error}
+                onStartAddingPoint={startAddingPoint}
             />
             <main className="flex-1 flex items-center justify-center bg-gray-200 p-4 overflow-hidden">
                 {imageElement ? (
@@ -161,6 +187,11 @@ const CQ: React.FC = () => {
                         metadata={metadata}
                         setMetadata={setMetadata}
                         addPoint={addPoint}
+                        addingPoint={addingPoint}
+                        setTempPoint={setTempPoint}
+                        tempPoint={tempPoint}
+                        cancelAddingPoint={cancelAddingPoint}
+                        savePoint={savePoint}
                     />
                 ) : (
                     <div className="text-center p-8 border-2 border-dashed border-gray-400 rounded-lg bg-white">

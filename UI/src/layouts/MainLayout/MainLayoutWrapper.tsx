@@ -1,9 +1,9 @@
 // components/Layouts/MainLayout/MainLayoutWrapper.tsx
 import React from "react";
 import MainLayout from "./MainLayout";
-import ProtectedRoute from "../../../routes/ProtectedRoute";
-import { useAuthContext } from "../../../context/AuthContext";
 import { useTranslation } from "react-i18next";
+import { useAuthContext } from "../../context/AuthContext";
+import ProtectedRoute from "../../routes/ProtectedRoute";
 
 const MainLayoutWrapper: React.FC = () => {
   const { user, loading } = useAuthContext();

@@ -1,9 +1,9 @@
 // components/Layout/Topbar/MenuItem.tsx
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { MenuItem as MenuItemType } from "../../../../types/Menu";
-import { useAppContext } from "../../../../context/AppContext";
 import { useTranslation } from "react-i18next";
+import { MenuItem as MenuItemType } from "../../../types/Menu";
+import { useAppContext } from "../../../context/AppContext";
 
 interface MenuItemProps {
   item: MenuItemType;

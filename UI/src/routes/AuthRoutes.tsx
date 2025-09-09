@@ -1,4 +1,4 @@
-import AuthLayout from "../components/Layouts/Auth/AuthLayout";
+import AuthLayout from "../layouts/Auth/AuthLayout";
 
 const AuthRoutes = {
     path: '/',

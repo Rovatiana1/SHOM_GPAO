@@ -3,7 +3,7 @@ import React from "react";
 import { RouteObject } from "react-router-dom";
 
 // Composants
-import MainLayoutWrapper from "../components/Layouts/MainLayout/MainLayoutWrapper";
+import MainLayoutWrapper from "../layouts/MainLayout/MainLayoutWrapper";
 import Dashboard from "../pages/Dashboard/Dashboard";
 import NotFound from "../utils/NotFound";
 import ProtectedRoute from "./ProtectedRoute";

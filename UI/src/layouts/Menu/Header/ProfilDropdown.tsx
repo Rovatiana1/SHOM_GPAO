@@ -1,7 +1,7 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { FaUser, FaCog, FaSignOutAlt, FaPalette, FaBell } from "react-icons/fa";
-import Dropdown from "../../../../shared/Dropdown";
+import Dropdown from "../../../shared/Dropdown";
 
 const ProfilDropdown: React.FC = () => {
   const { t } = useTranslation();

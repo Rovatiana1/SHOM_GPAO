@@ -1,11 +1,11 @@
 // components/Layout/Sidebar.tsx
 import React, { useState } from 'react';
 import SidebarItem from './SidebarItem';
-import { User } from '../../../../types/Users';
-import { getFilteredMenu } from '../../../../config/menu/menuConfig';
-import { useAppContext } from '../../../../context/AppContext';
 // FIX: Using namespace import for react-router-dom to resolve module export errors.
 import * as ReactRouterDom from 'react-router-dom';
+import { User } from '../../../types/Users';
+import { getFilteredMenu } from '../../../config/menu/menuConfig';
+import { useAppContext } from '../../../context/AppContext';
 
 interface SidebarProps {
   user: User;

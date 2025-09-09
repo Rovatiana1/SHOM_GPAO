@@ -4,7 +4,7 @@
 import React from 'react';
 
 // Composants de contenu spécifiques aux rôles
-import DashboardLayout from '../../components/Layouts/Dashboard/DashboardLayout';
+import DashboardLayout from '../../layouts/Dashboard/DashboardLayout';
 // import DashboardAdmin from '../../components/Dashboard/DashboardAdmin';
 // import DashboardCoach from '../../components/Dashboard/DashboardCoach';
 // import DashboardManager from '../../components/Dashboard/DashboardManager';

@@ -1,9 +1,9 @@
 // components/Layout/SidebarItem.tsx
 import React, { useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useAppContext } from "../../../../context/AppContext";
-import { MenuItem } from "../../../../types/Menu";
 import { useTranslation } from "react-i18next";
+import { MenuItem } from "../../../types/Menu";
+import { useAppContext } from "../../../context/AppContext";
 
 interface SidebarItemProps {
   item: MenuItem;
