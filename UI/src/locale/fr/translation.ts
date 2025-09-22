@@ -1,3 +1,4 @@
+
 export default {
   common: {
     loading: 'Chargement...',
@@ -113,6 +114,11 @@ export default {
     process: {
       title: 'Traitement des lots',
       subtitle: 'Suivi et gestion du traitement des données',
+      startNextLot: 'Démarrer le prochain lot',
+      completeAndContinue: "Terminer et étape suivante",
+      noLot: 'Aucun lot en cours de traitement. Cliquez sur "Démarrer prochain lot" pour commencer.',
+      loadingLot: 'Recherche du prochain lot...',
+      errorLot: 'Erreur lors de la récupération du lot: {{error}}',
       timeline: {
         title: 'Timeline du traitement',
         step1: { title: 'Récupération du lot', description: 'Récupération du lot {{lotId}} depuis la source' },

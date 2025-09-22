@@ -1,12 +1,12 @@
 
 import React, { useState, useCallback } from 'react';
-import { parseCsv } from './services/csvHelper';
-import { generateCsvContent } from './services/exportHelper';
+import { parseCsv } from '../../../services/csvHelper';
+import { generateCsvContent } from '../../../services/exportHelper';
 import Toolbar from './components/Toolbar';
 import CanvasComponent from './components/CanvasComponent';
 import ChartModal from './components/ChartModal';
 import { DateInfo, DisplayMode, Metadata, Point } from '../../../types/Image';
-import { parseCsvFile, savePoints } from './services/api';
+import { parseCsvFile, savePoints } from '../../../services/CQService';
 import { useAppContext } from "../../../context/AppContext";
 
 const CQ: React.FC = () => {

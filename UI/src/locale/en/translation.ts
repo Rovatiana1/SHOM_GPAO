@@ -1,3 +1,4 @@
+
 export default {
   common: {
     loading: 'Loading...',
@@ -113,6 +114,11 @@ export default {
     process: {
       title: 'Lot Processing',
       subtitle: 'Monitor and manage data processing',
+      startNextLot: 'Start Next Lot',
+      completeAndContinue: 'Complete & Next Step',
+      noLot: 'No lot is currently being processed. Click "Start Next Lot" to begin.',
+      loadingLot: 'Getting next lot...',
+      errorLot: 'Error getting lot: {{error}}',
       timeline: {
         title: 'Processing Timeline',
         step1: { title: 'Retrieve Lot', description: 'Retrieve lot {{lotId}} from source' },

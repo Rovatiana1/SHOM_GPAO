@@ -1,6 +1,6 @@
 // components/Layout/DashboardLayout.tsx
 import React from 'react';
-import { User } from '../../../types/Users';
+import { User } from '../../types/Users';
 
 interface DashboardLayoutProps {
   user: User;

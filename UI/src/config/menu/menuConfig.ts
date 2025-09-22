@@ -10,7 +10,7 @@ export const menuConfig: MenuSection[] = [
         titlePage: "TDB",
         icon: "fas fa-tachometer-alt", // Icône du dashboard
         to: "/dashboard",
-        roles: ["admin", "manager", "user"],
+        roles: ["ADMIN", "MANAGER", "USER"],
       },
     ],
   },
@@ -22,7 +22,7 @@ export const menuConfig: MenuSection[] = [
         titlePage: "Configuration",
         icon: "fas fa-cogs", // Icône pour configuration
         to: "/configuration",
-        roles: ["admin", "manager", "user"],
+        roles: ["ADMIN", "MANAGER", "USER"],
       },
     ],
   },
@@ -34,7 +34,7 @@ export const menuConfig: MenuSection[] = [
         titlePage: "Gestion Lots",
         icon: "fas fa-boxes", // Icône pour gestion des lots
         to: "/manage",
-        roles: ["admin", "manager", "user"],
+        roles: ["ADMIN", "MANAGER", "USER"],
       },
     ],
   },
@@ -46,7 +46,7 @@ export const menuConfig: MenuSection[] = [
         titlePage: "Traitement",
         icon: "fas fa-tasks", // Icône pour le traitement
         to: "/processing/cq",
-        roles: ["admin", "manager", "user"],
+        roles: ["ADMIN", "MANAGER", "USER"],
       },
     ],
     sidebar: [
@@ -58,34 +58,39 @@ export const menuConfig: MenuSection[] = [
             titlePage: "Contrôle qualité",
             icon: "fas fa-check-circle",
             to: "/processing/cq",
-            roles: ["admin", "manager", "user"],
+            roles: ["ADMIN", "MANAGER", "USER"],
           },
           {
             title: "Autres traitements",
             titlePage: "Autres traitements",
             icon: "fas fa-cogs",
             to: "/processing/other",
-            roles: ["admin", "manager", "user"],
+            roles: ["ADMIN", "MANAGER", "USER"],
           },
-        ]
-      }
-    ]
+        ],
+      },
+    ],
   },
 ];
 
 // Filtrer le menu selon le rôle
-export const getFilteredMenu = (role: UserRole): MenuSection[] => {
+export const getFilteredMenu = (userRoles: UserRole[]): MenuSection[] => {
+  const hasAccess = (allowedRoles: UserRole[] | undefined) => {
+    if (!allowedRoles || allowedRoles.length === 0) return true; // No roles defined means public
+    return userRoles.some(userRole => allowedRoles.includes(userRole));
+  };
+
   return menuConfig
-    .filter((section) => !section.roles || section.roles.includes(role))
+    .filter((section) => hasAccess(section.roles))
     .map((section) => ({
       ...section,
       items: section.items
-        .filter((item) => !item.roles || item.roles.includes(role))
+        .filter((item) => hasAccess(item.roles))
         .map((item) => ({
           ...item,
           items: item.items
             ? item.items.filter(
-                (subItem) => !subItem.roles || subItem.roles.includes(role)
+                (subItem) => hasAccess(subItem.roles)
               )
             : undefined,
         })),

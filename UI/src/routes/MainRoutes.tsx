@@ -22,7 +22,6 @@ const childRoutes: RouteObject[] = [
     children: [  
       { index: true, element: <ProcessAdmin /> },
       { path: "cq", element: <CQ /> },
-      // { path: "other", element: <OtherProcessingPage /> },
     ]
   },
   {

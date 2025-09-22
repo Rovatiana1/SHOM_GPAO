@@ -1,8 +1,9 @@
+import { Outlet } from "react-router-dom";
 import AuthLayout from "../layouts/Auth/AuthLayout";
 
 const AuthRoutes = {
     path: '/',
-    element: <></>,
+    element: <Outlet />,
     children: [
       {
         path: "/login",

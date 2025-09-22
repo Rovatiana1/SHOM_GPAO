@@ -1,16 +1,13 @@
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import LoginPage from '../../components/Auth/LoginPage';
 
 const AuthLayout: React.FC = () => {
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-    const handleLoginSuccess = () => {
-        setIsAuthenticated(true);
-    };
-
+    // FIX: Removed unused state and the `onLoginSuccess` prop from `LoginPage`.
+    // The `LoginPage` component handles its own authentication logic using `AuthContext`
+    // and does not accept an `onLoginSuccess` prop.
     return (
-        <LoginPage onLoginSuccess={handleLoginSuccess} />
+        <LoginPage />
     );
 };
 
