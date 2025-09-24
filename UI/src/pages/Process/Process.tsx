@@ -5,11 +5,6 @@ import React from 'react';
 
 // Composants de contenu spécifiques aux rôles
 import DashboardLayout from '../../layouts/Dashboard/DashboardLayout';
-// import DashboardAdmin from '../../components/Dashboard/DashboardAdmin';
-// import DashboardCoach from '../../components/Dashboard/DashboardCoach';
-// import DashboardManager from '../../components/Dashboard/DashboardManager';
-// import DashboardStudent from '../../components/Dashboard/DashboardStudent';
-import { SocketProvider } from '../../context/SocketContext';
 import { useAuthContext } from '../../context/AuthContext';
 import ProcessAdmin from '../../components/Process/ProcessAdmin';
 import { useTranslation } from 'react-i18next';
@@ -24,11 +19,9 @@ const Process: React.FC = () => {
   }
 
   return (
-    <SocketProvider>
-      <DashboardLayout user={user}>
-        <Outlet />
-      </DashboardLayout>
-    </SocketProvider>
+    <DashboardLayout user={user}>
+      <Outlet />
+    </DashboardLayout>
   );
 };
 

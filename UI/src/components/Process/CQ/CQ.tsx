@@ -1,13 +1,12 @@
-
-import React, { useState, useCallback } from 'react';
-import { parseCsv } from '../../../services/csvHelper';
-import { generateCsvContent } from '../../../services/exportHelper';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import Toolbar from './components/Toolbar';
 import CanvasComponent from './components/CanvasComponent';
 import ChartModal from './components/ChartModal';
 import { DateInfo, DisplayMode, Metadata, Point } from '../../../types/Image';
-import { parseCsvFile, savePoints } from '../../../services/CQService';
+import { parseCsvFile, savePoints, parseCsvFromPath } from '../../../services/CQService';
 import { useAppContext } from "../../../context/AppContext";
+import { useSelector } from 'react-redux';
+import { RootState } from '../../../store/store';
 
 const CQ: React.FC = () => {
     const [points, setPoints] = useState<Point[]>([]);
@@ -29,55 +28,10 @@ const CQ: React.FC = () => {
     const [isChartVisible, setChartVisible] = useState(false);
 
     const { setCollapsed } = useAppContext();
+    const { currentLot, paths } = useSelector((state: RootState) => state.process);
+    const processedLotId = useRef<number | null>(null);
 
-    const handleFileChange = async (csvFile: File) => {
-        try {
-            const { metadata, points, dates, image } = await parseCsvFile(csvFile);
-
-            setMetadata(metadata);
-            setOriginalMetadata(JSON.parse(JSON.stringify(metadata)));
-
-            setCollapsed(true);
-            // Crée mapping date -> couleur
-            const baseColors = [
-                "#e6194b", "#3cb44b", "#ffe119", "#4363d8", "#f58231",
-                "#911eb4", "#46f0f0", "#f032e6", "#bcf60c", "#fabebe",
-                "#008080", "#e6beff", "#9a6324", "#fffac8", "#800000",
-                "#aaffc3", "#808000", "#ffd8b1", "#000075", "#808080"
-            ];
-            const img = new Image();
-            img.onload = () => {
-                setImageElement(img);
-                setImageData(`data:image/png;base64,${image}`);
-
-                const imagePoints = points.map(([x, y]: [number, number]) => ({
-                    x,
-                    y,
-                    logicalX: 0,
-                    logicalY: 0,
-                }));
-
-                setPoints(imagePoints);
-                setOriginalPoints(JSON.parse(JSON.stringify(imagePoints)));
-                setDates(dates);
-                setOriginalDates(JSON.parse(JSON.stringify(dates)));
-                // Attribution des couleurs aux dates uniques
-                const uniqueDatesArray = Array.from(new Set<string>(dates));
-                setUniqueDates(
-                    uniqueDatesArray.map((d, index): DateInfo => ({
-                        date: d,
-                        color: baseColors[index % baseColors.length]!, // rotation si plus de dates que de couleurs
-                    }))
-                );
-            };
-            img.src = `data:image/png;base64,${image}`;
-        } catch (err) {
-            console.error(err);
-            setError("Impossible de charger le fichier");
-        }
-    };
-
-    const resetState = () => {
+    const resetState = useCallback(() => {
         setPoints([]);
         setOriginalPoints([]);
         setDates([]);
@@ -89,7 +43,84 @@ const CQ: React.FC = () => {
         setImageElement(null);
         setSelectedDate(null);
         setDisplayMode('points');
+        setError(null);
+    }, []);
+
+    const processParsedData = useCallback((data: { metadata: Metadata; points: [number, number][]; dates: string[]; image: string }) => {
+        const { metadata, points, dates, image } = data;
+
+        setMetadata(metadata);
+        setOriginalMetadata(JSON.parse(JSON.stringify(metadata)));
+
+        setCollapsed(true);
+        const baseColors = [
+            "#e6194b", "#3cb44b", "#ffe119", "#4363d8", "#f58231",
+            "#911eb4", "#46f0f0", "#f032e6", "#bcf60c", "#fabebe",
+            "#008080", "#e6beff", "#9a6324", "#fffac8", "#800000",
+            "#aaffc3", "#808000", "#ffd8b1", "#000075", "#808080"
+        ];
+        const img = new Image();
+        img.onload = () => {
+            setImageElement(img);
+            setImageData(`data:image/png;base64,${image}`);
+
+            const imagePoints = points.map(([x, y]: [number, number]) => ({
+                x,
+                y,
+                logicalX: 0,
+                logicalY: 0,
+            }));
+
+            setPoints(imagePoints);
+            setOriginalPoints(JSON.parse(JSON.stringify(imagePoints)));
+            setDates(dates);
+            setOriginalDates(JSON.parse(JSON.stringify(dates)));
+            const uniqueDatesArray = Array.from(new Set<string>(dates));
+            setUniqueDates(
+                uniqueDatesArray.map((d, index): DateInfo => ({
+                    date: d,
+                    color: baseColors[index % baseColors.length]!,
+                }))
+            );
+        };
+        img.src = `data:image/png;base64,${image}`;
+    }, [setCollapsed]);
+
+    const handleFileChange = async (csvFile: File) => {
+        setError(null);
+        try {
+            const data = await parseCsvFile(csvFile);
+            processParsedData(data);
+        } catch (err) {
+            console.error(err);
+            setError("Impossible de charger le fichier");
+        }
     };
+
+    const handleLoadFromPath = useCallback(async (path: string) => {
+        setError(null);
+        try {
+            const data = await parseCsvFromPath(path);
+            processParsedData(data);
+        } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : String(err);
+            console.error(err);
+            setError(`Erreur lors du chargement des données: ${errorMessage}`);
+        }
+    }, [processParsedData]);
+
+    useEffect(() => {
+        if (currentLot && paths && currentLot.idLot !== processedLotId.current) {
+            resetState();
+            processedLotId.current = currentLot.idLot;
+            handleLoadFromPath(paths.in);
+        }
+
+        if (!currentLot) {
+            resetState();
+            processedLotId.current = null;
+        }
+    }, [currentLot, paths, handleLoadFromPath, resetState]);
 
     const handleReset = useCallback(() => {
         setPoints(JSON.parse(JSON.stringify(originalPoints)));

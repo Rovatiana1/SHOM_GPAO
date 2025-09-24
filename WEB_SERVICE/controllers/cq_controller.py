@@ -41,7 +41,6 @@ def index():
                 return render_template("index.html", error=str(e))
     return render_template("index.html")
 
-
 # POST /parse_csv
 def parse_csv_api():
     file = request.files['csvfile']
@@ -66,7 +65,6 @@ def parse_csv_api():
             return jsonify({"error": str(e)}), 500
     return jsonify({"error": "Invalid CSV"}), 400
 
-
 # POST /save_points
 def save_points():
     try:
@@ -79,8 +77,6 @@ def save_points():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
    
-
-
 # POST /export
 def export_csv():
     data = request.json
@@ -135,7 +131,6 @@ def export_csv():
         as_attachment=True,
         download_name="export.csv"
     )
-
 
 # POST /update_metadata
 def update_metadata():

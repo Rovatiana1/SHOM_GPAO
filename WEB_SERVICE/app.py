@@ -13,6 +13,7 @@ from WEB_SERVICE.db import db
 # Import et enregistrement des routes
 from WEB_SERVICE.routes.auth_routes import auth_bp
 from WEB_SERVICE.routes.cq_routes import cq_bp
+from WEB_SERVICE.routes.gpao_routes import gpao_bp
 
 # ---------------------------------------------------------
 # Chargement de l'environnement et des variables associées
@@ -70,6 +71,7 @@ db.init_app(app)
 # ---------------------------------------------------------
 app.register_blueprint(auth_bp, url_prefix="/api/auth")
 app.register_blueprint(cq_bp, url_prefix="/api/cq")
+app.register_blueprint(gpao_bp, url_prefix="/api/gpao")
 
 # ---------------------------------------------------------
 # Routes pour servir l'application React

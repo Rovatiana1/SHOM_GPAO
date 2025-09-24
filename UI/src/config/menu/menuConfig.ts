@@ -3,49 +3,13 @@ import { UserRole } from "../../types/Users";
 
 export const menuConfig: MenuSection[] = [
   {
-    title: "Tableau de bord",
-    items: [
-      {
-        title: "Tableau de bord",
-        titlePage: "TDB",
-        icon: "fas fa-tachometer-alt", // Icône du dashboard
-        to: "/dashboard",
-        roles: ["ADMIN", "MANAGER", "USER"],
-      },
-    ],
-  },
-  {
-    title: "Configuration",
-    items: [
-      {
-        title: "Configuration",
-        titlePage: "Configuration",
-        icon: "fas fa-cogs", // Icône pour configuration
-        to: "/configuration",
-        roles: ["ADMIN", "MANAGER", "USER"],
-      },
-    ],
-  },
-  {
-    title: "Gestion Lots",
-    items: [
-      {
-        title: "Gestion Lots",
-        titlePage: "Gestion Lots",
-        icon: "fas fa-boxes", // Icône pour gestion des lots
-        to: "/manage",
-        roles: ["ADMIN", "MANAGER", "USER"],
-      },
-    ],
-  },
-  {
     title: "Traitement",
     items: [
       {
         title: "Traitement",
         titlePage: "Traitement",
         icon: "fas fa-tasks", // Icône pour le traitement
-        to: "/processing/cq",
+        to: "/processing",
         roles: ["ADMIN", "MANAGER", "USER"],
       },
     ],
@@ -57,7 +21,7 @@ export const menuConfig: MenuSection[] = [
             title: "CQ (Contrôle qualité)",
             titlePage: "Contrôle qualité",
             icon: "fas fa-check-circle",
-            to: "/processing/cq",
+            to: "/processing",
             roles: ["ADMIN", "MANAGER", "USER"],
           },
           {
@@ -71,6 +35,18 @@ export const menuConfig: MenuSection[] = [
       },
     ],
   },
+  {
+    title: "Tableau de bord",
+    items: [
+      {
+        title: "Tableau de bord",
+        titlePage: "TDB",
+        icon: "fas fa-tachometer-alt", // Icône du dashboard
+        to: "/dashboard",
+        roles: ["ADMIN", "MANAGER", "USER"],
+      },
+    ],
+  }
 ];
 
 // Filtrer le menu selon le rôle
