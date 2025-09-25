@@ -21,19 +21,13 @@ const initialState: ProcessState = {
     paths: null,
 };
 
-const buildPathsForLot = (lotName: string) => {
-    const basePath = "\\\\10.128.1.10\\005822\\PRODUCTION\\LOT6";
-    const commonSubPath = `TEST_DEV\\${lotName}\\${lotName}.csv`;
-    const inPath = `${basePath}\\SAISIE\\${commonSubPath}`;
-    const outPath = `${basePath}\\CQ_CIBLE\\${commonSubPath}`;
-    return { in: inPath, out: outPath };
-};
-
 // Async Thunks
-export const fetchCurrentLot = createAsyncThunk<any, number, { state: RootState }>(
+// FIX: Removed explicit state type from createAsyncThunk generics to break a circular dependency with the store.
+// This allows AppDispatch to be inferred correctly. `getState` is now cast to `RootState` within the thunk.
+export const fetchCurrentLot = createAsyncThunk(
     'process/fetchCurrentLot',
-    async (userId, { getState, rejectWithValue }) => {
-        const { currentLot, loading } = getState().process;
+    async (userId: number, { getState, rejectWithValue }) => {
+        const { currentLot, loading } = (getState() as RootState).process;
         if (currentLot || loading) {
             return; // Already have a lot or loading, no need to fetch
         }
@@ -46,10 +40,14 @@ export const fetchCurrentLot = createAsyncThunk<any, number, { state: RootState 
     }
 );
 
-export const getAndStartNextLot = createAsyncThunk<any, void, { state: RootState }>(
+// FIX: Removed explicit state type from createAsyncThunk generics to break a circular dependency with the store.
+export const getAndStartNextLot = createAsyncThunk(
     'process/getAndStartNextLot',
     async (_, { getState, rejectWithValue }) => {
-        const { user } = getState().auth; // Assuming auth slice exists and holds the user
+        const { user } = (getState() as RootState).auth; // Assuming auth slice exists and holds the user
+        
+        console.log("getAndStartNextLot called", user);
+        
         if (!user) {
             return rejectWithValue("Utilisateur non authentifié.");
         }
@@ -65,12 +63,15 @@ export const getAndStartNextLot = createAsyncThunk<any, void, { state: RootState
     }
 );
 
-export const pauseCurrentLot = createAsyncThunk<void, void, { state: RootState }>(
+// FIX: Removed explicit state type from createAsyncThunk generics to break a circular dependency with the store.
+export const pauseCurrentLot = createAsyncThunk(
     'process/pauseCurrentLot',
     async (_, { getState, rejectWithValue }) => {
-        const { currentLot } = getState().process;
-        const { user } = getState().auth;
+        const { currentLot } = (getState() as RootState).process;
+        const { user } = (getState() as RootState).auth;
         if (!currentLot || !user) return rejectWithValue('No lot or user');
+
+        console.log("pauseCurrentLot called", currentLot, user);
         try {
             const params = {
                 _idDossier: currentLot.idDossier!,
@@ -79,7 +80,7 @@ export const pauseCurrentLot = createAsyncThunk<void, void, { state: RootState }
                 _idLotClient: currentLot.idLotClient!,
                 _idLot: currentLot.idLot!,
                 _idTypeLdt: 0,
-                _qte: 500,
+                _qte: 1,
             };
             await gpaoService.endLdt(params);
         } catch (err: any) {
@@ -88,12 +89,14 @@ export const pauseCurrentLot = createAsyncThunk<void, void, { state: RootState }
     }
 );
 
-export const resumeCurrentLot = createAsyncThunk<void, void, { state: RootState }>(
+// FIX: Removed explicit state type from createAsyncThunk generics to break a circular dependency with the store.
+export const resumeCurrentLot = createAsyncThunk(
     'process/resumeCurrentLot',
     async (_, { getState, rejectWithValue }) => {
-        const { currentLot } = getState().process;
-        const { user } = getState().auth;
+        const { currentLot } = (getState() as RootState).process;
+        const { user } = (getState() as RootState).auth;
         if (!currentLot || !user) return rejectWithValue('No lot or user');
+        console.log("resumeCurrentLot called", currentLot, user);
         try {
             const params = {
                 _idDossier: currentLot.idDossier!,
@@ -111,13 +114,14 @@ export const resumeCurrentLot = createAsyncThunk<void, void, { state: RootState 
 );
 
 
-export const completeAndMoveToNextStep = createAsyncThunk<void, void, { state: RootState }>(
+// FIX: Removed explicit state type from createAsyncThunk generics to break a circular dependency with the store.
+export const completeAndMoveToNextStep = createAsyncThunk(
     'process/completeAndMoveToNextStep',
     async (_, { getState, rejectWithValue }) => {
-        const { currentLot } = getState().process;
-        const { user } = getState().auth;
+        const { currentLot } = (getState() as RootState).process;
+        const { user } = (getState() as RootState).auth;
         if (!currentLot || !user) return rejectWithValue('No lot or user');
-
+        console.log("completeAndMoveToNextStep called", currentLot, user);
         try {
              const endParams = {
                 _idDossier: currentLot.idDossier!,
@@ -126,7 +130,7 @@ export const completeAndMoveToNextStep = createAsyncThunk<void, void, { state: R
                 _idLotClient: currentLot.idLotClient!,
                 _idLot: currentLot.idLot!,
                 _idTypeLdt: 0,
-                _qte: 500,
+                _qte: 1,
             };
             await gpaoService.endLdt(endParams);
 
@@ -135,7 +139,8 @@ export const completeAndMoveToNextStep = createAsyncThunk<void, void, { state: R
                 _idEtape: currentLot.idEtape!,
                 _idLotClient: currentLot.idLotClient!,
                 _libelle: currentLot.libelle!,
-                _qte: currentLot.qte!.toString(),
+                // _qte: currentLot.qte!.toString(),
+                _qte: 1,
             };
             await gpaoService.injectNextEtape(nextEtapeParams);
         } catch (err: any) {
@@ -153,6 +158,52 @@ const processSlice = createSlice({
         },
     },
     extraReducers: (builder) => {
+        // Specific fulfilled handlers
+        builder
+            .addCase(fetchCurrentLot.fulfilled, (state, action) => {
+                if (action.payload && action.payload.lot) {
+                    const lot = action.payload.lot;
+                    state.currentLot = lot;
+                    state.startTime = new Date(action.payload.startTime).getTime();
+                    state.isProcessing = true;
+                    if (lot.paths) {
+                        state.paths = {
+                            in: lot.paths.IN_CQ,
+                            out: lot.paths.OUT_CQ,
+                        };
+                    } else {
+                        state.paths = null;
+                    }
+                }
+                state.loading = false;
+            })
+            .addCase(getAndStartNextLot.fulfilled, (state, action) => {
+                const lot = action.payload.lot;
+                state.currentLot = lot;
+                state.isProcessing = true;
+                state.startTime = Date.now();
+                 if (lot.paths) {
+                    state.paths = {
+                        in: lot.paths.IN_CQ,
+                        out: lot.paths.OUT_CQ,
+                    };
+                } else {
+                    state.paths = null;
+                }
+                state.loading = false;
+            })
+            .addCase(pauseCurrentLot.fulfilled, (state) => {
+                state.isProcessing = false;
+                state.loading = false;
+            })
+            .addCase(resumeCurrentLot.fulfilled, (state) => {
+                state.isProcessing = true;
+                state.loading = false;
+            })
+            .addCase(completeAndMoveToNextStep.fulfilled, (state) => {
+                return initialState; // Reset state
+            });
+            
         // Generic loading/error handlers
         builder
             .addMatcher(
@@ -169,36 +220,6 @@ const processSlice = createSlice({
                     state.error = action.payload;
                 }
             );
-
-        // Specific fulfilled handlers
-        builder
-            .addCase(fetchCurrentLot.fulfilled, (state, action) => {
-                if (action.payload && action.payload.lot) {
-                    state.currentLot = action.payload.lot;
-                    state.startTime = new Date(action.payload.startTime).getTime();
-                    state.isProcessing = true;
-                    state.paths = buildPathsForLot(action.payload.lot.libelle);
-                }
-                state.loading = false;
-            })
-            .addCase(getAndStartNextLot.fulfilled, (state, action) => {
-                state.currentLot = action.payload.lot;
-                state.isProcessing = true;
-                state.startTime = Date.now();
-                state.paths = buildPathsForLot(action.payload.lot.libelle);
-                state.loading = false;
-            })
-            .addCase(pauseCurrentLot.fulfilled, (state) => {
-                state.isProcessing = false;
-                state.loading = false;
-            })
-            .addCase(resumeCurrentLot.fulfilled, (state) => {
-                state.isProcessing = true;
-                state.loading = false;
-            })
-            .addCase(completeAndMoveToNextStep.fulfilled, (state) => {
-                return initialState; // Reset state
-            });
     },
 });
 

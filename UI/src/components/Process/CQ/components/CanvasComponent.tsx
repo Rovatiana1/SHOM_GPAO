@@ -1,5 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { DateInfo, DisplayMode, Metadata, Point, ReperePoint } from '../../../../types/Image';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../../../store/store';
 
 interface CanvasProps {
     image: HTMLImageElement;

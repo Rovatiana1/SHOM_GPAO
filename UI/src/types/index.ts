@@ -1,9 +1,8 @@
-
 export enum LotStatus {
-  EnCours = 'en-cours',
-  Termine = 'termine',
-  EnAttente = 'en-attente',
-  Erreur = 'erreur',
+  EnCours = "en-cours",
+  Termine = "termine",
+  EnAttente = "en-attente",
+  Erreur = "erreur",
 }
 
 export interface Lot {
@@ -15,17 +14,13 @@ export interface Lot {
   quantity: number | null;
 }
 
-// Représente la structure détaillée d'un lot retourné par l'API
-// export interface LotDetails {
-//   _idLot: number;
-//   _idDossier: number;
-//   _idEtape: number;
-//   _idLotClient: number;
-//   _idTypeLdt: number;
-//   libelle: string;
-//   qte: number;
-// }
-
+export interface LotPaths {
+  basePath: string;
+  IN_CQ: string;
+  OUT_CQ: string;
+  IN_CQ_ISO: string;
+  OUT_CQ_ISO: string;
+}
 
 export interface LotDetails {
   estPrio: boolean | null;
@@ -47,5 +42,5 @@ export interface LotDetails {
   idEtape: number | null;
   idTypeLdt: number | null;
   qte: number | null;
+  paths: LotPaths | null; // ✅ objet bien typé
 }
-

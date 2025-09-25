@@ -3,7 +3,8 @@ import Toolbar from './components/Toolbar';
 import CanvasComponent from './components/CanvasComponent';
 import ChartModal from './components/ChartModal';
 import { DateInfo, DisplayMode, Metadata, Point } from '../../../types/Image';
-import { parseCsvFile, savePoints, parseCsvFromPath } from '../../../services/CQService';
+// FIX: Import `savePoints` to be used in the `handleExport` function.
+import { parseCsvFile, getFileFromPath, savePoints } from '../../../services/CQService';
 import { useAppContext } from "../../../context/AppContext";
 import { useSelector } from 'react-redux';
 import { RootState } from '../../../store/store';
@@ -26,10 +27,15 @@ const CQ: React.FC = () => {
 
     const [error, setError] = useState<string | null>(null);
     const [isChartVisible, setChartVisible] = useState(false);
+    const [autoLoadedFilename, setAutoLoadedFilename] = useState<string | null>(null);
+
+    const [csvFile, setCsvFile] = useState<File | null>(null);
+    const isAutoLoading = useRef(false);
 
     const { setCollapsed } = useAppContext();
-    const { currentLot, paths } = useSelector((state: RootState) => state.process);
+    const { currentLot, paths, loading: processLoading } = useSelector((state: RootState) => state.process);
     const processedLotId = useRef<number | null>(null);
+    const [imageLoading, setImageLoading] = useState(false);
 
     const resetState = useCallback(() => {
         setPoints([]);
@@ -44,6 +50,9 @@ const CQ: React.FC = () => {
         setSelectedDate(null);
         setDisplayMode('points');
         setError(null);
+        setAutoLoadedFilename(null);
+        setCsvFile(null);
+        isAutoLoading.current = false;
     }, []);
 
     const processParsedData = useCallback((data: { metadata: Metadata; points: [number, number][]; dates: string[]; image: string }) => {
@@ -82,45 +91,74 @@ const CQ: React.FC = () => {
                     color: baseColors[index % baseColors.length]!,
                 }))
             );
+            
+            setImageLoading(false); // 👉 stop une fois que l'image est bien chargée
+        };
+        img.onerror = () => {
+            setError("Erreur lors du chargement de l’image.");
+            setImageLoading(false);
         };
         img.src = `data:image/png;base64,${image}`;
     }, [setCollapsed]);
 
-    const handleFileChange = async (csvFile: File) => {
+    const handleFileChange = useCallback(async (file: File) => {
         setError(null);
-        try {
-            const data = await parseCsvFile(csvFile);
-            processParsedData(data);
-        } catch (err) {
-            console.error(err);
-            setError("Impossible de charger le fichier");
-        }
-    };
+        setImageLoading(true); // 👉 on commence à charger l'image
 
-    const handleLoadFromPath = useCallback(async (path: string) => {
-        setError(null);
+        console.log('Processing file:', file.name, file);
         try {
-            const data = await parseCsvFromPath(path);
+            const data = await parseCsvFile(file);
             processParsedData(data);
         } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : String(err);
             console.error(err);
-            setError(`Erreur lors du chargement des données: ${errorMessage}`);
+            setError("Impossible de parser le fichier CSV.");
+            setImageLoading(false); // 👉 stop si erreur
+        } finally {
+            isAutoLoading.current = false;
         }
     }, [processParsedData]);
+
+    const handleManualFileSelect = (file: File | null) => {
+        setAutoLoadedFilename(null);
+        isAutoLoading.current = false;
+        setCsvFile(file);
+    };
 
     useEffect(() => {
         if (currentLot && paths && currentLot.idLot !== processedLotId.current) {
             resetState();
             processedLotId.current = currentLot.idLot;
-            handleLoadFromPath(paths.in);
+            isAutoLoading.current = true;
+
+            const autoLoadAndProcess = async (path: string) => {
+                setError(null);
+                try {
+                    const { name, content } = await getFileFromPath(path);
+                    const newFile = new File([content], name, { type: 'text/csv' });
+                    setAutoLoadedFilename(name);
+                    setCsvFile(newFile);
+                } catch (err) {
+                    const errorMessage = err instanceof Error ? err.message : String(err);
+                    console.error(err);
+                    setError(`Erreur lors du chargement automatique: ${errorMessage}`);
+                    isAutoLoading.current = false;
+                }
+            };
+
+            autoLoadAndProcess(paths.in);
         }
 
         if (!currentLot) {
             resetState();
             processedLotId.current = null;
         }
-    }, [currentLot, paths, handleLoadFromPath, resetState]);
+    }, [currentLot, paths, resetState]);
+
+    useEffect(() => {
+        if (csvFile && isAutoLoading.current) {
+            handleFileChange(csvFile);
+        }
+    }, [csvFile, handleFileChange]);
 
     const handleReset = useCallback(() => {
         setPoints(JSON.parse(JSON.stringify(originalPoints)));
@@ -183,7 +221,7 @@ const CQ: React.FC = () => {
         setAddingPoint(false);
         setTempPoint(null);
     };
-    
+
     return (
         <div className="flex h-full w-full font-sans">
             <Toolbar
@@ -204,8 +242,38 @@ const CQ: React.FC = () => {
                 hasData={!!imageElement}
                 error={error}
                 onStartAddingPoint={startAddingPoint}
+                autoLoadedFilename={autoLoadedFilename}
+                csvFile={csvFile}
+                setCsvFile={handleManualFileSelect}
             />
-            <main className="flex-1 flex items-center justify-center bg-gray-200 p-4 overflow-hidden">
+            <main className="relative flex-1 flex items-center justify-center bg-gray-200 p-4 overflow-hidden h-[90vh]">
+                {(processLoading || imageLoading) && (
+                    <div className="absolute inset-0 bg-black bg-opacity-70 backdrop-blur-md flex items-center justify-center z-50">
+                        <div className="flex flex-col items-center">
+                            <svg
+                                className="animate-spin h-10 w-10 text-white mb-3"
+                                xmlns="http://www.w3.org/2000/svg"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                            >
+                                <circle
+                                    className="opacity-25"
+                                    cx="12"
+                                    cy="12"
+                                    r="10"
+                                    stroke="currentColor"
+                                    strokeWidth="4"
+                                ></circle>
+                                <path
+                                    className="opacity-75"
+                                    fill="currentColor"
+                                    d="M4 12a8 8 0 018-8v8H4z"
+                                ></path>
+                            </svg>
+                            <span className="text-white text-lg">Chargement de l’image...</span>
+                        </div>
+                    </div>
+                )}
                 {imageElement ? (
                     <CanvasComponent
                         image={imageElement}

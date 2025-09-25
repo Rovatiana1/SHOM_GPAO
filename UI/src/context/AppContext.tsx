@@ -11,7 +11,7 @@ interface AppContextProps {
 const AppContext = createContext<AppContextProps | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [collapsed, setCollapsedState] = useState<boolean>(false);
+  const [collapsed, setCollapsedState] = useState<boolean>(true);
   const [titlePage, setTitlePageState] = useState<string>("");
 
   const setCollapsed = (value: boolean) => setCollapsedState(value);

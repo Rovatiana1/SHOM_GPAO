@@ -137,3 +137,38 @@ def update_metadata():
     data = request.get_json()
     session["metadata"] = json.dumps(data)
     return jsonify({"status": "ok"})
+
+
+
+# GET /get_file_from_path
+def get_file_from_path():
+    """
+    Charge un fichier CSV depuis un chemin réseau et renvoie son contenu en JSON.
+    """
+    try:
+        file_path = request.args.get("path")
+        if not file_path and request.is_json:
+            file_path = request.json.get("path")
+
+        if not file_path:
+            return jsonify({"error": "Le paramètre 'path' est requis"}), 400
+
+        file_path = os.path.normpath(file_path)
+
+        if not os.path.exists(file_path):
+            return jsonify({"error": f"Fichier introuvable : {file_path}"}), 404
+
+        if not file_path.lower().endswith(".csv"):
+            return jsonify({"error": "Seuls les fichiers CSV sont supportés"}), 400
+
+        # Lire le contenu du CSV
+        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            content = f.read()
+
+        return jsonify({
+            "name": os.path.basename(file_path),
+            "content": content
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

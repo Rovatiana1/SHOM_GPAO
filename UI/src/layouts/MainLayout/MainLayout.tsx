@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
-import { User } from '../../../types/Users';
 import Header from '../Menu/Header/Header';
 import Sidebar from '../Menu/Sidebar/Sidebar';
 import { useLocation, Outlet, useNavigate } from 'react-router-dom';
+import { User } from '../../types/Users';
 
 interface MainLayoutProps {
   user: User;
@@ -20,7 +20,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ user }) => {
           <Sidebar user={user} />
         )}
         <div
-          className={`flex-1 flex flex-col overflow-y-auto p-6 ${showSidebar ? 'ml-0' : 'mx-auto max-w-7xl'
+          className={`flex-1 flex flex-col overflow-y-auto p-2 ${showSidebar ? 'ml-0' : 'mx-auto max-w-7xl'
             }`}
         >
           <main className="flex-1">
