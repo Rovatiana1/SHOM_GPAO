@@ -1,8 +1,8 @@
-export async function parseCsvFile(csvFile: File) {
+export async function parseCsvFile(csvFile: File, imageOptPath?: string, imageTifPath?: string) {
   const formData = new FormData();
   formData.append("csvfile", csvFile);
 
-  const response = await fetch("http://localhost:6003/api/cq/parse_csv", {
+  const response = await fetch(`http://localhost:6003/api/cq/parse_csv?image_opt_path=${imageOptPath}&image_tif_path=${imageTifPath}`, {
     method: "POST",
     body: formData,
   });

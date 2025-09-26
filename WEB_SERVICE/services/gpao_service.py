@@ -1,18 +1,17 @@
 import requests
 import os
 from WEB_SERVICE.models.lot_model import Lot
+from WEB_SERVICE.utils.constant import BASE_PATH, BASE_URL_API_GPAO
 
 class GpaoService:
-    BASE_URL = "http://10.128.1.100:5001/api"  # API GPAO distante
-    BASE_PATH = r"\\10.128.1.10\005822\PRODUCTION\LOT6"  # Chemin réseau de base
-
+    
     @staticmethod
     def post(endpoint: str, payload: dict, token: str):
         """
         Méthode générique pour poster vers l'API GPAO externe.
         Utilise les paramètres en query string au lieu du body JSON.
         """
-        url = f"{GpaoService.BASE_URL}{endpoint}"
+        url = f"{BASE_URL_API_GPAO}{endpoint}"
         headers = {
             "Authorization": f"Bearer {token}"
         }
@@ -46,7 +45,6 @@ class GpaoService:
             return result
 
         lot = result["lot"]
-        base = GpaoService.BASE_PATH
         client = lot.get("libelleLotClient")
         libelle = lot.get("libelle")
         print(f"[GpaoService] Traitement du lot : {lot}")
@@ -57,12 +55,14 @@ class GpaoService:
 
         # Construction des chemins
         lot["paths"] = {
-            "basePath": base,            
-            "IN_CQ": r"D:\0000__work_space\0000_PROJECTS\SHOM\0000_DEV\GPAO\uploads\cherbourg 19620305-livrable.csv",
-            # "IN_CQ": os.path.join(base, "SAISIE", client, libelle, f"{libelle}.csv"),
-            "OUT_CQ": os.path.join(base, "CQ", client, libelle, f"{libelle}.csv"),
-            "IN_CQ_ISO": os.path.join(base, "CQ", client, libelle, f"{libelle}.csv"),
-            "OUT_CQ_ISO": os.path.join(base, "CQ_ISO", client, libelle, f"{libelle}.csv")
+            "basePath": BASE_PATH,            
+            # "IN_CQ": r"D:\0000__work_space\0000_PROJECTS\SHOM\0000_DEV\GPAO\uploads\cherbourg 19620305-livrable.csv",            
+            "IN_CQ": os.path.join(BASE_PATH, "SAISIE", client, libelle, f"{libelle}.csv"),
+            "OUT_CQ": os.path.join(BASE_PATH, "CQ", client, libelle, f"{libelle}.csv"),
+            "IMAGE_OPT_PATH": os.path.join(BASE_PATH, "IMAGE", client, "img_opt", libelle, f"{libelle}.jpg"),
+            "IMAGE_TIF_PATH": os.path.join(BASE_PATH, "IMAGE", client, libelle, f"{libelle}.tif"),
+            "IN_CQ_ISO": os.path.join(BASE_PATH, "CQ", client, libelle, f"{libelle}.csv"),
+            "OUT_CQ_ISO": os.path.join(BASE_PATH, "CQ_ISO", client, libelle, f"{libelle}.csv")
         }
         
         # Recherche de l'utilisateur en base

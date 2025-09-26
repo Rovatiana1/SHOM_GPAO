@@ -32,10 +32,29 @@ def parse_metadata_and_data(csv_path):
     
     return metadata, df
 
-def draw_points_on_image(image_path, df, metadata):
-    img = cv2.imread(image_path)
+def draw_points_on_image(image_opt_path, image_tif_path, image_path_metadata, df, metadata):
+    img = None
+    tried_paths = []
+
+    # Essayer d'abord image opt
+    if image_opt_path:
+        img = cv2.imread(image_opt_path)
+        tried_paths.append(image_opt_path)
+
+    # Si pas d'image, essayer image tif
+    if img is None and image_tif_path:
+        img = cv2.imread(image_tif_path)
+        tried_paths.append(image_tif_path)
+
+    # Si pas d'image, essayer image metadata
+    if img is None and image_path_metadata:
+        img = cv2.imread(image_path_metadata)
+        tried_paths.append(image_path_metadata)
+
+    # Si toujours None → erreur
     if img is None:
-        raise FileNotFoundError(f"❌ Image introuvable : {image_path}")
+        raise FileNotFoundError(f"❌ Impossible de charger une image. Chemins testés : {tried_paths}")
+
     point_coords = []
     date_list = []
 
@@ -57,11 +76,11 @@ def draw_points_on_image(image_path, df, metadata):
         x, y = int(round(x)), int(round(y))
         point_coords.append([x, y])
 
-        # Construit la date au format "YYYY-MM-DD"
+        # Construire la date au format "YYYY-MM-DD"
         date_str = f"{int(row['Année']):04d}-{int(row['Mois']):02d}-{int(row['Jour']):02d}"
         date_list.append(date_str)
 
-    return img, point_coords, date_list  # on retourne aussi la liste des dates
+    return img, point_coords, date_list # on retourne aussi la liste des dates
 
 def image_to_base64(image):
     _, buffer = cv2.imencode('.png', image)

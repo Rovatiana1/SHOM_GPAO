@@ -43,27 +43,49 @@ def index():
 
 # POST /parse_csv
 def parse_csv_api():
-    file = request.files['csvfile']
-    if file and file.filename.endswith('.csv'):
-        os.makedirs("uploads", exist_ok=True)
-        csv_path = os.path.join("uploads", file.filename)
-        file.save(csv_path)
+    try:
+        # Récupérer le fichier CSV
+        file = request.files.get('csvfile')
 
-        try:
-            metadata, df = parse_metadata_and_data(csv_path)
-            image_path = metadata["Img_path"]
-            img_with_points, point_coords, date_list = draw_points_on_image(image_path, df, metadata)
-            encoded_image = image_to_base64(img_with_points)
+        # Récupérer les query params
+        image_opt_path = request.args.get("image_opt_path")
+        image_tif_path = request.args.get("image_tif_path")
 
-            return jsonify({
-                "metadata": metadata,
-                "points": point_coords,
-                "dates": date_list,
-                "image": encoded_image
-            })
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-    return jsonify({"error": "Invalid CSV"}), 400
+        print(f"Received image_opt_path: {image_opt_path}, image_tif_path: {image_tif_path}", file=sys.stderr)
+
+        # Vérifier que le CSV est bien fourni
+        if file and file.filename.endswith('.csv'):
+            os.makedirs("uploads", exist_ok=True)
+            csv_path = os.path.join("uploads", file.filename)
+            file.save(csv_path)
+
+            try:
+                # Extraire métadonnées et dataframe
+                metadata, df = parse_metadata_and_data(csv_path)
+
+                # Utiliser soit metadata, soit les query params
+                image_path_metadata = metadata.get("Img_path") or image_opt_path
+
+                img_with_points, point_coords, date_list = draw_points_on_image(image_opt_path, image_tif_path, image_path_metadata, df, metadata)
+                encoded_image = image_to_base64(img_with_points)
+
+                return jsonify({
+                    "metadata": metadata,
+                    "points": point_coords,
+                    "dates": date_list,
+                    "image": encoded_image
+                })
+
+            except Exception as e:
+                print(f"Error processing CSV: {e}", file=sys.stderr)
+                return jsonify({"error": str(e)}), 500
+
+        return jsonify({"error": "Invalid CSV"}), 400
+
+    except Exception as e:
+        print(f"Unexpected error: {e}", file=sys.stderr)
+        return jsonify({"error": str(e)}), 500
+
 
 # POST /save_points
 def save_points():

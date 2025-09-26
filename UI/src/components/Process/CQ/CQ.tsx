@@ -105,9 +105,9 @@ const CQ: React.FC = () => {
         setError(null);
         setImageLoading(true); // 👉 on commence à charger l'image
 
-        console.log('Processing file:', file.name, file);
+        console.log('Processing file:', file.name, file, currentLot);
         try {
-            const data = await parseCsvFile(file);
+            const data = await parseCsvFile(file, currentLot?.paths?.IMAGE_OPT_PATH, currentLot?.paths?.IMAGE_TIF_PATH);
             processParsedData(data);
         } catch (err) {
             console.error(err);
