@@ -32,25 +32,21 @@ def parse_metadata_and_data(csv_path):
     
     return metadata, df
 
-def draw_points_on_image(image_opt_path, image_tif_path, image_path_metadata, df, metadata):
+def draw_points_on_image(image_path, image_path_metadata, df, metadata):
     img = None
     tried_paths = []
 
-    # Essayer d'abord image opt
-    if image_opt_path:
-        img = cv2.imread(image_opt_path)
-        tried_paths.append(image_opt_path)
-
-    # Si pas d'image, essayer image tif
-    if img is None and image_tif_path:
-        img = cv2.imread(image_tif_path)
-        tried_paths.append(image_tif_path)
+    # Essayer d'abord image via le lot recuperer
+    if image_path:
+        img = cv2.imread(image_path)
+        tried_paths.append(image_path)
 
     # Si pas d'image, essayer image metadata
     if img is None and image_path_metadata:
         img = cv2.imread(image_path_metadata)
         tried_paths.append(image_path_metadata)
 
+    print(f"Chemins testés : {tried_paths}")
     # Si toujours None → erreur
     if img is None:
         raise FileNotFoundError(f"❌ Impossible de charger une image. Chemins testés : {tried_paths}")

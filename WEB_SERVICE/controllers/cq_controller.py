@@ -48,10 +48,9 @@ def parse_csv_api():
         file = request.files.get('csvfile')
 
         # Récupérer les query params
-        image_opt_path = request.args.get("image_opt_path")
-        image_tif_path = request.args.get("image_tif_path")
+        image_path = request.args.get("image_path")
 
-        print(f"Received image_opt_path: {image_opt_path}, image_tif_path: {image_tif_path}", file=sys.stderr)
+        print(f"Received image_path: {image_path}")
 
         # Vérifier que le CSV est bien fourni
         if file and file.filename.endswith('.csv'):
@@ -64,9 +63,9 @@ def parse_csv_api():
                 metadata, df = parse_metadata_and_data(csv_path)
 
                 # Utiliser soit metadata, soit les query params
-                image_path_metadata = metadata.get("Img_path") or image_opt_path
+                image_path_metadata = metadata.get("Img_path") or image_path
 
-                img_with_points, point_coords, date_list = draw_points_on_image(image_opt_path, image_tif_path, image_path_metadata, df, metadata)
+                img_with_points, point_coords, date_list = draw_points_on_image(image_path, image_path_metadata, df, metadata)
                 encoded_image = image_to_base64(img_with_points)
 
                 return jsonify({

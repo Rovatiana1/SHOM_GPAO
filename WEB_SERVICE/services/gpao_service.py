@@ -1,7 +1,7 @@
 import requests
 import os
 from WEB_SERVICE.models.lot_model import Lot
-from WEB_SERVICE.utils.constant import BASE_PATH, BASE_URL_API_GPAO
+from WEB_SERVICE.utils.constant import BASE_PATH, BASE_URL_API_GPAO, ID_ETAPE_CQ_ISO
 
 class GpaoService:
     
@@ -47,23 +47,24 @@ class GpaoService:
         lot = result["lot"]
         client = lot.get("libelleLotClient")
         libelle = lot.get("libelle")
+        libelle_without_extension = ""
         print(f"[GpaoService] Traitement du lot : {lot}")
         
         # Vérifier et enlever l'extension .tif si elle existe
         if libelle and libelle.lower().endswith(".tif"):
-            libelle = os.path.splitext(libelle)[0]
+            libelle_without_extension = os.path.splitext(libelle)[0]
 
         # Construction des chemins
         lot["paths"] = {
             "basePath": BASE_PATH,            
             # "IN_CQ": r"D:\0000__work_space\0000_PROJECTS\SHOM\0000_DEV\GPAO\uploads\cherbourg 19620305-livrable.csv",            
-            "IN_CQ": os.path.join(BASE_PATH, "SAISIE", client, libelle, f"{libelle}.csv"),
-            "OUT_CQ": os.path.join(BASE_PATH, "CQ", client, libelle, f"{libelle}.csv"),
-            "IMAGE_OPT_PATH": os.path.join(BASE_PATH, "IMAGE", client, "img_opt", libelle, f"{libelle}.jpg"),
-            "IMAGE_TIF_PATH": os.path.join(BASE_PATH, "IMAGE", client, libelle, f"{libelle}.tif"),
-            "IN_CQ_ISO": os.path.join(BASE_PATH, "CQ", client, libelle, f"{libelle}.csv"),
-            "OUT_CQ_ISO": os.path.join(BASE_PATH, "CQ_ISO", client, libelle, f"{libelle}.csv")
+            "IN_CQ": os.path.join(BASE_PATH, "SAISIE", client, libelle_without_extension, f"{libelle_without_extension}.csv"),
+            "OUT_CQ": os.path.join(BASE_PATH, "CQ", client, libelle_without_extension, f"{libelle_without_extension}.csv"),
+            "IMAGE_PATH": os.path.join(BASE_PATH, "IMAGE", client, libelle),
+            "IN_CQ_ISO": os.path.join(BASE_PATH, "CQ", client, libelle_without_extension, f"{libelle_without_extension}.csv"),
+            "OUT_CQ_ISO": os.path.join(BASE_PATH, "CQ_ISO", client, libelle_without_extension, f"{libelle_without_extension}.csv")
         }
+        
         
         # Recherche de l'utilisateur en base
         lotGpao = Lot.query.filter_by(id_lot=lot.get("idLot")).first()
@@ -73,6 +74,7 @@ class GpaoService:
         
         # ajouter idEtape depuis p_lot
         lot["idEtape"] = lotGpao.id_etape
+        lot["idNextEtape"] = ID_ETAPE_CQ_ISO  # Préparer pour l'injection dans l'étape suivante (idEtape CQ_ISO)
 
         return result
 

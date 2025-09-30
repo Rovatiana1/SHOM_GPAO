@@ -18,8 +18,7 @@ export interface LotPaths {
   basePath: string;
   IN_CQ: string;
   OUT_CQ: string;
-  IMAGE_OPT_PATH: string;
-  IMAGE_TIF_PATH: string;
+  IMAGE_PATH: string;
   IN_CQ_ISO: string;
   OUT_CQ_ISO: string;
 }
@@ -42,6 +41,7 @@ export interface LotDetails {
   priority: number;
   type: string | null;
   idEtape: number | null;
+  idNextEtape: number | null;
   idTypeLdt: number | null;
   qte: number | null;
   paths: LotPaths | null; // ✅ objet bien typé

@@ -107,7 +107,7 @@ const CQ: React.FC = () => {
 
         console.log('Processing file:', file.name, file, currentLot);
         try {
-            const data = await parseCsvFile(file, currentLot?.paths?.IMAGE_OPT_PATH, currentLot?.paths?.IMAGE_TIF_PATH);
+            const data = await parseCsvFile(file, currentLot.paths.IMAGE_PATH);
             processParsedData(data);
         } catch (err) {
             console.error(err);
