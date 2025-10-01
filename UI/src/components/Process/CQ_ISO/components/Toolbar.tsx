@@ -103,11 +103,11 @@ const Toolbar: React.FC<ToolbarProps> = ({
                     </div>
                     <button
                         onClick={handleImport}
-                        disabled={!csvFile || isDisabled}
+                        disabled={!csvFile || isAutoLoaded || isDisabled}
                         className={`w-full py-2 px-4 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 ${
-                            csvFile && !isDisabled
+                            csvFile && !isAutoLoaded && !isDisabled
                                 ? "bg-green-600 text-white hover:bg-green-700"
-                                : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                                : "bg-gray-300 text-gray-500 cursor-not-allowed opacity-50"
                         }`}
                     >
                         <Icons.Upload /> Import

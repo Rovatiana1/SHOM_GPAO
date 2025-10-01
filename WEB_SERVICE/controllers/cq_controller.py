@@ -90,14 +90,25 @@ def parse_csv_api():
 def save_points():
     try:
         data = request.get_json(silent=True)
+        print("data non clean:", data)
         metadata = clean_and_validate_metadata(data.get("metadata", {}))
         session["metadata"] = json.dumps(metadata)
 
-        response = build_and_export_csv(data, metadata)
-        return response
+        print("metadata save_points:", metadata)
+        export_path = build_and_export_csv(data, metadata)
+
+        # Envoie le CSV au client
+        return send_file(
+            export_path,
+            mimetype="text/csv",
+            as_attachment=True,
+            download_name=os.path.basename(export_path)
+        )
+
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-   
+    
+    
 # POST /export
 def export_csv():
     data = request.json

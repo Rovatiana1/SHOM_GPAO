@@ -61,6 +61,7 @@ class GpaoService:
             "IN_CQ": os.path.join(BASE_PATH, "SAISIE", client, libelle_without_extension, f"{libelle_without_extension}.csv"),
             "OUT_CQ": os.path.join(BASE_PATH, "CQ", client, libelle_without_extension, f"{libelle_without_extension}.csv"),
             "IMAGE_PATH": os.path.join(BASE_PATH, "IMAGE", client, libelle),
+            # "IMAGE_PATH": "",
             "IN_CQ_ISO": os.path.join(BASE_PATH, "CQ", client, libelle_without_extension, f"{libelle_without_extension}.csv"),
             "OUT_CQ_ISO": os.path.join(BASE_PATH, "CQ_ISO", client, libelle_without_extension, f"{libelle_without_extension}.csv")
         }

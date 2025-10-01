@@ -2,7 +2,7 @@ import pandas as pd
 import cv2
 import base64
 import numpy as np
-import os, re, io
+import os, re, io, sys   # 👈 ajouter sys ici
 from datetime import datetime, timedelta
 from flask import send_file, jsonify
 import math
@@ -87,8 +87,12 @@ def build_and_export_csv(data: dict, metadata: dict):
     Transforme les points et dates en CSV interpolé,
     sauvegarde le CSV sur le serveur et retourne le chemin pour téléchargement.
     """
+    
+    print("metadata non clean:", metadata)
     # 1️⃣ Nettoyage des métadonnées
     metadata = clean_and_validate_metadata(metadata)
+    
+    print("metadata icic:", metadata)
     
     points = data.get('points', [])
     dates = data.get('dates', [])
@@ -109,7 +113,6 @@ def build_and_export_csv(data: dict, metadata: dict):
     # 4️⃣ Suppression des doublons
     df_initial_size = len(df)
     df.drop_duplicates(subset=['date', 'x_logical', 'y_logical'], inplace=True)
-    
     # 5️⃣ Filtrage par bornes X logiques
     origin_x = float(metadata["origin_value"][0])
     x_end = float(metadata["x_max_value"])
@@ -199,3 +202,4 @@ def build_and_export_csv(data: dict, metadata: dict):
     df_to_save.to_csv(export_path, index=False, sep=';')
 
     # 9️⃣ Retourne le chemin pour l'envoi via Flask
+    return export_path

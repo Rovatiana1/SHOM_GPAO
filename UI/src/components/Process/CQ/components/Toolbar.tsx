@@ -17,6 +17,7 @@ interface ToolbarProps {
     onReset: () => void;
     onShowChart: () => void;  
     onStartAddingPoint: () => void;
+    onStartSettingOrigin: () => void;
     metadata: Metadata | null;
     setMetadata: React.Dispatch<React.SetStateAction<Metadata | null>>;
     points: Point[];
@@ -42,6 +43,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
     hasData,
     error,
     onStartAddingPoint,
+    onStartSettingOrigin,
     autoLoadedFilename,
     csvFile,
     setCsvFile,
@@ -137,13 +139,16 @@ const Toolbar: React.FC<ToolbarProps> = ({
                         <button onClick={onStartAddingPoint} className="bg-blue-500 text-white py-2 px-3 rounded-md hover:bg-blue-600 flex items-center justify-center gap-2">
                             <Icons.Add /> Nouveau
                         </button>
+                        <button onClick={onStartSettingOrigin} className="bg-yellow-500 text-white py-2 px-3 rounded-md hover:bg-yellow-600 flex items-center justify-center gap-2">
+                            <Icons.Settings /> Repère
+                        </button>
                         <button onClick={() => onExport(5)} className="bg-green-600 text-white py-2 px-3 rounded-md hover:bg-green-700 flex items-center justify-center gap-2">
                             <Icons.Download /> Export
                         </button>
                         <button onClick={onShowChart} className="bg-purple-500 text-white py-2 px-3 rounded-md hover:bg-purple-600 flex items-center justify-center gap-2">
                             <Icons.Chart /> Show Curves
                         </button>
-                        <button onClick={onReset} className="bg-red-500 text-white py-2 px-3 rounded-md hover:bg-red-600 flex items-center justify-center gap-2">
+                        <button onClick={onReset} className="col-span-2 bg-red-500 text-white py-2 px-3 rounded-md hover:bg-red-600 flex items-center justify-center gap-2">
                             <Icons.Reset /> Reset
                         </button>
                     </div>
