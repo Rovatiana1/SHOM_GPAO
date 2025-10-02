@@ -92,19 +92,31 @@ def save_points():
         data = request.get_json(silent=True)
         print("data non clean:", data)
         metadata = clean_and_validate_metadata(data.get("metadata", {}))
-        session["metadata"] = json.dumps(metadata)
+        session["metadata"] = json.dumps(metadata)        
 
         print("metadata save_points:", metadata)
         export_path = build_and_export_csv(data, metadata)
+        
+        # # exporter le fichier csv dans le repertoire OUT_CQ
+        # if not export_path or not os.path.exists(export_path):
+        #     raise FileNotFoundError(f"❌ Échec de l'exportation du CSV à {export_path}")
+        
+        
+        # print(f"✅ CSV exporté avec succès à {export_path}")
 
-        # Envoie le CSV au client
-        return send_file(
-            export_path,
-            mimetype="text/csv",
-            as_attachment=True,
-            download_name=os.path.basename(export_path)
-        )
-
+        # # Envoie le CSV au client
+        # return send_file(
+        #     export_path,
+        #     mimetype="text/csv",
+        #     as_attachment=True,
+        #     download_name=os.path.basename(export_path)
+        # )
+        return jsonify({
+            "status": "success",
+            "message": f"✅ CSV exporté avec succès à {export_path}",
+            "file_path": export_path
+        })
+        
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
     

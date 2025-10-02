@@ -56,16 +56,14 @@ class GpaoService:
 
         # Construction des chemins
         lot["paths"] = {
-            "basePath": BASE_PATH,            
-            # "IN_CQ": r"D:\0000__work_space\0000_PROJECTS\SHOM\0000_DEV\GPAO\uploads\cherbourg 19620305-livrable.csv",            
-            "IN_CQ": os.path.join(BASE_PATH, "SAISIE", client, libelle_without_extension, f"{libelle_without_extension}.csv"),
-            "OUT_CQ": os.path.join(BASE_PATH, "CQ", client, libelle_without_extension, f"{libelle_without_extension}.csv"),
-            "IMAGE_PATH": os.path.join(BASE_PATH, "IMAGE", client, libelle),
-            # "IMAGE_PATH": "",
-            "IN_CQ_ISO": os.path.join(BASE_PATH, "CQ", client, libelle_without_extension, f"{libelle_without_extension}.csv"),
-            "OUT_CQ_ISO": os.path.join(BASE_PATH, "CQ_ISO", client, libelle_without_extension, f"{libelle_without_extension}.csv")
+            "basePath": BASE_PATH,
+            "IN_CQ": f"{BASE_PATH}/SAISIE/{client}/{libelle_without_extension}/{libelle_without_extension}.csv",
+            "OUT_CQ": f"{BASE_PATH}/CQ_CIBLE/{client}/{libelle_without_extension}",   # dossier uniquement
+            "IMAGE_PATH": f"{BASE_PATH}/IMAGE/{client}/{libelle}",
+            "IN_CQ_ISO": f"{BASE_PATH}/CQ_CIBLE/{client}/{libelle_without_extension}/{libelle_without_extension}.csv",
+            "OUT_CQ_ISO": f"{BASE_PATH}/CQ_ISO/{client}/{libelle_without_extension}",
         }
-        
+
         
         # Recherche de l'utilisateur en base
         lotGpao = Lot.query.filter_by(id_lot=lot.get("idLot")).first()

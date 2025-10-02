@@ -8,6 +8,8 @@ from flask import send_file, jsonify
 import math
 from scipy.interpolate import interp1d
 from WEB_SERVICE.utils.helpers import pixel_to_logical, clean_and_validate_metadata
+from collections import Counter
+import random
 
 
 def parse_metadata_and_data(csv_path):
@@ -97,6 +99,7 @@ def build_and_export_csv(data: dict, metadata: dict):
     points = data.get('points', [])
     dates = data.get('dates', [])
     duration = float(data.get('duration', 0))  # en minutes
+    export_path = data.get('export_path', "")  # en minutes
     
     if len(points) < 1 or len(dates) < 1:
         raise ValueError("Aucun point ou date valide fourni.")
@@ -187,19 +190,78 @@ def build_and_export_csv(data: dict, metadata: dict):
     final_df = final_df[['Année', 'Mois', 'Jour', 'Heure', 'Minute', 'Seconde', "Hauteur d'eau (m)"]].drop_duplicates()
 
     # 7️⃣ Construction du nom de fichier et dossier d'export
+    os.makedirs(export_path, exist_ok=True)  # export_path = dossier
+    
     img_path = metadata.get('Img_path')
-    filename = f"{os.path.splitext(os.path.basename(img_path))[0]}.csv" if img_path and os.path.exists(img_path) \
-        else f"mesure_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-
-    base_path = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
-    export_dir = os.path.join(base_path, "exports")
-    os.makedirs(export_dir, exist_ok=True)
-    export_path = os.path.join(export_dir, filename)
-
+    filename = f"{os.path.splitext(os.path.basename(img_path))[0]}.csv" if img_path else f"mesure_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    full_export_path = f"{export_path}/{filename}"
+    
     # 8️⃣ Sauvegarde CSV avec format numérique correct
     df_to_save = final_df.copy()
     df_to_save['Hauteur d\'eau (m)'] = df_to_save['Hauteur d\'eau (m)'].map(lambda x: f"{x:.2f}".replace('.', ','))
-    df_to_save.to_csv(export_path, index=False, sep=';')
+
+    # Sauvegarde CSV
+    with open(full_export_path, "w", encoding="utf-8", newline="") as f:
+        # écrire les métadonnées au début
+        for key, value in metadata.items():
+            f.write(f"# {key}: {value}\n")
+        # puis les données
+        df_to_save.to_csv(f, index=False, sep=";")
 
     # 9️⃣ Retourne le chemin pour l'envoi via Flask
     return export_path
+
+
+def calcul_sample(pop):
+    """Retourne la taille de l'échantillon selon la population."""
+    thresholds = [
+        (2, 8, 2),
+        (9, 15, 3),
+        (16, 25, 5),
+        (26, 50, 8),
+        (51, 90, 13),
+        (91, 150, 20),
+        (151, 280, 32),
+        (281, 500, 50),
+        (501, 1200, 80),
+        (1201, 3200, 125),
+        (3201, 10000, 200),
+        (10001, 35000, 315),
+        (35001, 150000, 500),
+        (150001, 500000, 800),
+        (500001, float('inf'), 1250)  # pour pop >= 500001
+    ]
+    
+    for low, high, sample in thresholds:
+        if low <= pop <= high:
+            return sample
+    return pop  # si pop < 2, on retourne la population elle-même
+
+
+def get_sampled_points(points, dates):
+    sampled_points = []
+    sampled_indices = []
+
+    unique_dates = sorted(set(dates))
+    
+    # compter le nombre total de points par date
+    total_counts = Counter(dates)
+
+    for date in unique_dates:
+        indices = [i for i, d in enumerate(dates) if d == date]
+        n_sample = min(len(indices), calcul_sample(len(indices)))  # appliquer la règle
+        
+        chosen_indices = random.sample(indices, n_sample)
+        
+        sampled_indices.extend(chosen_indices)
+        sampled_points.extend([points[i] for i in chosen_indices])
+    
+    # afficher le nombre de points sélectionnés et le total par date
+    sampled_counts = Counter(dates[i] for i in sampled_indices)
+    print("Nombre de points sélectionnés / total par date :")
+    for date in unique_dates:
+        selected = sampled_counts.get(date, 0)
+        total = total_counts[date]
+        print(f"Date: {date}, Sélectionnés: {selected}, Total: {total}")
+    
+    return sampled_points, sampled_indices

@@ -37,7 +37,7 @@ const CQ: React.FC = () => {
     const { currentLot, paths, loading: processLoading } = useSelector((state: RootState) => state.process);
     const processedLotId = useRef<number | null>(null);
     const [imageLoading, setImageLoading] = useState(false);
-    
+
     const [isSettingOrigin, setIsSettingOrigin] = useState(false);
 
     const resetState = useCallback(() => {
@@ -113,7 +113,7 @@ const CQ: React.FC = () => {
                     color: baseColors[index % baseColors.length]!,
                 }))
             );
-            
+
             setImageLoading(false);
         };
         img.onerror = () => {
@@ -167,7 +167,7 @@ const CQ: React.FC = () => {
                 }
             };
 
-            autoLoadAndProcess(paths.in);
+            autoLoadAndProcess(currentLot.paths.IN_CQ); // on force ici mais normalement ca doit etre path.in => ca vient de processSlice
         }
 
         if (!currentLot) {
@@ -188,22 +188,42 @@ const CQ: React.FC = () => {
         setMetadata(JSON.parse(JSON.stringify(originalMetadata)));
     }, [originalPoints, originalDates, originalMetadata]);
 
+    // const handleExport = async (durationMinutes: number) => {
+    //     if (!metadata || points.length === 0) {
+    //         alert("No data to export.");
+    //         return;
+    //     }
+
+    //     try {
+    //         const response = await savePoints(points, dates, metadata, durationMinutes);
+    //         const blob = await response.blob();
+    //         const url = window.URL.createObjectURL(blob);
+    //         const link = document.createElement("a");
+    //         link.href = url;
+    //         link.setAttribute("download", `export_${new Date().toISOString().slice(0, 10)}.csv`);
+    //         document.body.appendChild(link);
+    //         link.click();
+    //         document.body.removeChild(link);
+    //     } catch (e) {
+    //         console.error(e);
+    //         alert("Erreur lors de l’export CSV");
+    //     }
+    // };
+
+
     const handleExport = async (durationMinutes: number) => {
         if (!metadata || points.length === 0) {
             alert("No data to export.");
             return;
         }
-
         try {
-            const response = await savePoints(points, dates, metadata, durationMinutes);
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.href = url;
-            link.setAttribute("download", `export_${new Date().toISOString().slice(0, 10)}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            const response = await savePoints(points, dates, metadata, durationMinutes, currentLot.paths.OUT_CQ);
+            const result = await response.json();
+            if (result.status === "success") {
+                alert(`Fichier exporté avec succès : ${result.file_path}`);
+            } else {
+                alert("Erreur lors de l’export CSV");
+            }
         } catch (e) {
             console.error(e);
             alert("Erreur lors de l’export CSV");
@@ -250,23 +270,23 @@ const CQ: React.FC = () => {
 
     const saveNewOrigin = (newRepere: { origin: Point; xAxis: Point; yAxis: Point }) => {
         if (!originalMetadata || !originalPoints || !metadata) return;
-    
+
         // 1. Define old basis from original metadata (now guaranteed to be [number, number])
         const O_old = originalMetadata.origin_px;
         const X_max_old = originalMetadata.x_max_px;
         const Y_max_old = originalMetadata.y_max_px;
-    
+
         const VX_old = [X_max_old[0] - O_old[0], X_max_old[1] - O_old[1]];
         const VY_old = [Y_max_old[0] - O_old[0], Y_max_old[1] - O_old[1]];
-    
+
         // 2. Define new basis from user input
         const O_new = [newRepere.origin.x, newRepere.origin.y];
         const X_max_new = [newRepere.xAxis.x, newRepere.xAxis.y];
         const Y_max_new = [newRepere.yAxis.x, newRepere.yAxis.y];
-    
+
         const VX_new = [X_max_new[0]! - O_new[0]!, X_max_new[1]! - O_new[1]!];
         const VY_new = [Y_max_new[0]! - O_new[0]!, Y_max_new[1]! - O_new[1]!];
-    
+
         // 3. Calculate inverse of the old transformation matrix determinant
         const det_old = VX_old[0]! * VY_old[1]! - VY_old[0]! * VX_old[1]!;
         if (Math.abs(det_old) < 1e-6) {
@@ -274,31 +294,31 @@ const CQ: React.FC = () => {
             setIsSettingOrigin(false);
             return;
         }
-    
+
         // 4. Transform each original point
         const newPoints = originalPoints.map(p_orig => {
             const p_vec = [p_orig.x - O_old[0], p_orig.y - O_old[1]];
-    
+
             // Solve for logical coordinates (u, v) where P-O = u*VX + v*VY
             const u = (p_vec[0]! * VY_old[1]! - p_vec[1]! * VY_old[0]!) / det_old;
             const v = (p_vec[1]! * VX_old[0]! - p_vec[0]! * VX_old[1]!) / det_old;
-    
+
             // Apply new transformation
             const newX = O_new[0]! + u * VX_new[0]! + v * VY_new[0]!;
             const newY = O_new[1]! + u * VX_new[1]! + v * VY_new[1]!;
-    
+
             return { ...p_orig, x: newX, y: newY };
         });
-    
+
         setPoints(newPoints);
-    
+
         // 5. Update metadata
         const newMetadata: Metadata = JSON.parse(JSON.stringify(metadata));
         newMetadata.origin_px = [newRepere.origin.x, newRepere.origin.y];
         newMetadata.x_max_px = [newRepere.xAxis.x, newRepere.xAxis.y];
         newMetadata.y_max_px = [newRepere.yAxis.x, newRepere.yAxis.y];
         setMetadata(newMetadata);
-    
+
         setIsSettingOrigin(false);
     };
 
@@ -329,8 +349,8 @@ const CQ: React.FC = () => {
                 setCsvFile={handleManualFileSelect}
             />
             <main className="relative flex-1 flex items-center justify-center bg-gray-200 p-4 overflow-hidden h-[90vh]">
-                {(processLoading || imageLoading) && (
-                    <div className="absolute inset-0 bg-black bg-opacity-70 backdrop-blur-md flex items-center justify-center z-50">
+                {(imageLoading) && (
+                    <div className="absolute inset-0 bg-black bg-opacity-70 backdrop-blur-md flex items-center justify-center z-40">
                         <div className="flex flex-col items-center">
                             <svg
                                 className="animate-spin h-10 w-10 text-white mb-3"

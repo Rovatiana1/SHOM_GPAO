@@ -115,7 +115,7 @@ export default {
       title: 'Traitement des lots',
       subtitle: 'Suivi et gestion du traitement des données',
       startNextLot: 'Démarrer le prochain lot',
-      completeAndContinue: "Terminer et étape suivante",
+      completeAndContinue: "Terminer le traitement",
       noLot: 'Aucun lot en cours de traitement. Cliquez sur "Démarrer prochain lot" pour commencer.',
       loadingLot: 'Recherche du prochain lot...',
       errorLot: 'Erreur lors de la récupération du lot: {{error}}',
