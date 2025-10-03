@@ -25,7 +25,20 @@ interface CanvasProps {
 
 const POINT_RADIUS = 7;
 const HOVER_RADIUS = 15;
-const VALIDATION_ZOOM_SCALE = 20;
+const VALIDATION_ZOOM_SCALE = 5;
+
+// // Conversion cm → px (en supposant 96 dpi = 37.8 px/cm)
+const CM_TO_PX = 37.8;
+const VALIDATION_DIAMETER_CM = 3;
+// const VALIDATION_RADIUS_PX = (VALIDATION_DIAMETER_CM * CM_TO_PX) / 2; // ≈ 56.7px
+const VALIDATION_RADIUS_PX = (VALIDATION_DIAMETER_CM * CM_TO_PX) / 3; // ≈ 56.7px
+
+// // Conversion cm -> px (300 dpi)
+// const DPI = 300;
+// const CM_TO_PX = DPI / 2.54; // ≈ 118.11 px/cm
+// const VALIDATION_DIAMETER_CM = 3;
+// const VALIDATION_RADIUS_PX = (VALIDATION_DIAMETER_CM * CM_TO_PX) / 2; // ≈ 177.16 px
+
 
 const CanvasComponent: React.FC<CanvasProps> = ({
     image,
@@ -92,7 +105,7 @@ const CanvasComponent: React.FC<CanvasProps> = ({
         }
         return -1;
     }, [points, dates, selectedDate, viewTransform.scale, isValidationMode]);
-    
+
     // Auto-zoom to current point in validation mode
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -115,22 +128,22 @@ const CanvasComponent: React.FC<CanvasProps> = ({
 
         const parent = canvas.parentElement;
         if (parent) {
-             const { clientWidth: pw, clientHeight: ph } = parent;
+            const { clientWidth: pw, clientHeight: ph } = parent;
             canvas.width = pw;
             canvas.height = ph;
-            
+
             // Only set initial scale if not in validation mode and not already transformed
             if (!isValidationMode && viewTransform.scale === 1 && viewTransform.offsetX === 0 && viewTransform.offsetY === 0) {
-                 const initialScale = Math.min(canvas.width / image.width, canvas.height / image.height);
-                 setViewTransform(prev => ({
-                     ...prev,
-                     scale: initialScale,
-                     offsetX: (canvas.width - image.width * initialScale) / 2,
-                     offsetY: (canvas.height - image.height * initialScale) / 2
-                 }));
+                const initialScale = Math.min(canvas.width / image.width, canvas.height / image.height);
+                setViewTransform(prev => ({
+                    ...prev,
+                    scale: initialScale,
+                    offsetX: (canvas.width - image.width * initialScale) / 2,
+                    offsetY: (canvas.height - image.height * initialScale) / 2
+                }));
             }
         }
-        
+
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.save();
 
@@ -138,7 +151,7 @@ const CanvasComponent: React.FC<CanvasProps> = ({
         // ctx.translate(canvas.width / 2, canvas.height / 2);
         // ctx.rotate(viewTransform.angle);
         // ctx.translate(-canvas.width / 2, -canvas.height / 2);
-        
+
         // Déplacement et zoom
         ctx.translate(viewTransform.offsetX, viewTransform.offsetY);
         ctx.scale(viewTransform.scale, viewTransform.scale);
@@ -193,15 +206,15 @@ const CanvasComponent: React.FC<CanvasProps> = ({
 
         points.forEach((point, i) => {
             if (!isValidationMode && selectedDate && dates[i] !== selectedDate) return;
-            
+
             let color;
-            switch(point.validationStatus) {
+            switch (point.validationStatus) {
                 case 'valid': color = '#22c55e'; break; // green-500
                 case 'error': color = '#ef4444'; break; // red-500
                 case 'pending':
                 default: color = dateColorMap.get(dates[i]!) || '#ff0000';
             }
-            
+
             ctx.fillStyle = color;
             ctx.strokeStyle = color;
             ctx.lineWidth = 2 / sqrtScale;
@@ -220,11 +233,18 @@ const CanvasComponent: React.FC<CanvasProps> = ({
                 ctx.stroke();
             }
 
+            // if (isValidationMode && i === currentPointIndex) {
+            //     ctx.strokeStyle = '#0ea5e9'; // sky-500
+            //     ctx.lineWidth = 2 / sqrtScale;
+            //     ctx.beginPath();
+            //     ctx.arc(point.x, point.y, HOVER_RADIUS / sqrtScale, 0, 2 * Math.PI);
+            //     ctx.stroke();
+            // }
             if (isValidationMode && i === currentPointIndex) {
                 ctx.strokeStyle = '#0ea5e9'; // sky-500
                 ctx.lineWidth = 2 / sqrtScale;
                 ctx.beginPath();
-                ctx.arc(point.x, point.y, HOVER_RADIUS / sqrtScale, 0, 2 * Math.PI);
+                ctx.arc(point.x, point.y, VALIDATION_RADIUS_PX / sqrtScale, 0, 2 * Math.PI);
                 ctx.stroke();
             }
         });
@@ -301,7 +321,7 @@ const CanvasComponent: React.FC<CanvasProps> = ({
         };
 
         const handleMouseMove = (e: MouseEvent) => {
-             if (isValidationMode || addingPoint) return;
+            if (isValidationMode || addingPoint) return;
             const pos = getMousePos(e);
 
             if (isRotating && lastMousePos) {
@@ -373,8 +393,8 @@ const CanvasComponent: React.FC<CanvasProps> = ({
                 height={image.height}
                 onClick={handleClick}
                 style={{
-                    cursor: isValidationMode 
-                        ? 'default' 
+                    cursor: isValidationMode
+                        ? 'default'
                         : (isRotating ? 'grabbing' : (isPanning ? 'grabbing' : 'crosshair'))
                 }}
             />

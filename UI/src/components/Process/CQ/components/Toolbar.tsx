@@ -15,7 +15,7 @@ interface ToolbarProps {
     setDisplayMode: (mode: DisplayMode) => void;
     onExport: (duration: number) => void;
     onReset: () => void;
-    onShowChart: () => void;  
+    onShowChart: () => void;
     onStartAddingPoint: () => void;
     onStartSettingOrigin: () => void;
     metadata: Metadata | null;
@@ -28,6 +28,11 @@ interface ToolbarProps {
     autoLoadedFilename: string | null;
     csvFile: File | null; // State lifted up
     setCsvFile: (file: File | null) => void; // State lifted up
+    onStartCapture: () => void;
+    onExportCaptures: () => void;
+    captureCount: number;
+    // FIX: Added missing property 'isExportingCaptures' to fix type error.
+    isExportingCaptures: boolean;
 }
 
 const Toolbar: React.FC<ToolbarProps> = ({
@@ -47,6 +52,10 @@ const Toolbar: React.FC<ToolbarProps> = ({
     autoLoadedFilename,
     csvFile,
     setCsvFile,
+    onStartCapture,
+    onExportCaptures,
+    captureCount,
+    isExportingCaptures
 }) => {
     const { isProcessing, startTime, currentLot, loading: processLoading } = useSelector((state: RootState) => state.process);
     const isDisabled = isProcessing || processLoading;
@@ -63,7 +72,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
         const file = e.target.files?.[0] || null;
         setCsvFile(file);
     };
-    
+
     const displayName = csvFile?.name;
     const displaySize = csvFile?.size;
     const isAutoLoaded = autoLoadedFilename && displayName === autoLoadedFilename;
@@ -77,7 +86,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
                     <label className="text-sm font-medium text-gray-600">CSV File</label>
                     <div
                         className="flex flex-col items-center justify-center w-full p-6 border-2 border-dashed rounded-lg bg-green-50 hover:bg-green-100 transition cursor-pointer"
-                        // onClick={() => csvInputRef.current?.click()} activé par le bouton
+                    // onClick={() => csvInputRef.current?.click()} activé par le bouton
                     >
                         {displayName ? (
                             <div className="text-center">
@@ -103,11 +112,10 @@ const Toolbar: React.FC<ToolbarProps> = ({
                     <button
                         onClick={handleImport}
                         disabled={!csvFile || isAutoLoaded || isDisabled}
-                        className={`w-full py-2 px-4 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 ${
-                            csvFile && !isAutoLoaded && !isDisabled
+                        className={`w-full py-2 px-4 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 ${csvFile && !isAutoLoaded && !isDisabled
                                 ? "bg-green-600 text-white hover:bg-green-700"
                                 : "bg-gray-300 text-gray-500 cursor-not-allowed opacity-50"
-                        }`}
+                            }`}
                     >
                         <Icons.Upload /> Import
                     </button>
@@ -135,7 +143,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 mt-4">                        
+                    <div className="grid grid-cols-2 gap-2 mt-4">
                         <button onClick={onStartAddingPoint} className="bg-blue-500 text-white py-2 px-3 rounded-md hover:bg-blue-600 flex items-center justify-center gap-2">
                             <Icons.Add /> Nouveau
                         </button>
@@ -153,6 +161,35 @@ const Toolbar: React.FC<ToolbarProps> = ({
                         </button>
                     </div>
 
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                        <h2 className="font-semibold text-lg text-gray-700 mb-2">Capture d'écran</h2>
+                        <div className="grid grid-cols-2 gap-2">
+                            <button onClick={onStartCapture} className="bg-teal-500 text-white py-2 px-3 rounded-md hover:bg-teal-600 flex items-center justify-center gap-2">
+                                <Icons.Camera /> Capturer
+                            </button>
+                            <button
+                                onClick={onExportCaptures}
+                                disabled={captureCount === 0}
+                                className="relative bg-cyan-600 text-white py-2 px-3 rounded-md hover:bg-cyan-700 flex items-center justify-center gap-2 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                            >
+                                {isExportingCaptures ? (
+                                    <>
+                                        <i className="fas fa-spinner fa-spin mr-2" />
+                                        <span>Export...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Icons.Download /> Exporter
+                                    </>
+                                )}
+                                {captureCount > 0 && !isExportingCaptures && (
+                                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                                        {captureCount}
+                                    </span>
+                                )}
+                            </button>
+                        </div>
+                    </div>
                     <Legend uniqueDates={uniqueDates} selectedDate={selectedDate} onSelectDate={setSelectedDate} />
                 </>
             )}

@@ -31,13 +31,13 @@ export const menuConfig: MenuSection[] = [
             to: "/processing/cq-iso",
             roles: ["ADMIN", "MANAGER", "USER"],
           },
-          {
-            title: "Autres traitements",
-            titlePage: "Autres traitements",
-            icon: "fas fa-cogs", // Paramètres / traitements divers
-            to: "/processing/other",
-            roles: ["ADMIN", "MANAGER", "USER"],
-          },
+          // {
+          //   title: "Autres traitements",
+          //   titlePage: "Autres traitements",
+          //   icon: "fas fa-cogs", // Paramètres / traitements divers
+          //   to: "/processing/other",
+          //   roles: ["ADMIN", "MANAGER", "USER"],
+          // },
         ],
       },
     ],

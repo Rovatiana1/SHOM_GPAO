@@ -17,7 +17,7 @@ const MainLayout: React.FC<{ user: User }> = ({ user }) => {
   const isPaused = !isProcessing && !!currentLot;
 
   const handleResume = () => {
-    dispatch(resumeCurrentLot());
+    dispatch(resumeCurrentLot(pauseReason));
   };
 
   return (

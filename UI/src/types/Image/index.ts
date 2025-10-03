@@ -52,3 +52,10 @@ export interface DateInfo {
     date: string;
     color: string;
 }
+
+export interface Capture {
+    imageData: string;
+    type: string;
+    nature: string;
+    filename: string;
+}

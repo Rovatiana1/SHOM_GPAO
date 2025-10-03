@@ -1,3 +1,5 @@
+import { Point } from "../types/Image";
+
 export async function parseCsvFile(csvFile: File, imagePath: string) {
   const formData = new FormData();
   formData.append("csvfile", csvFile);
@@ -65,13 +67,20 @@ export async function savePoints(
   duration: number,
   export_path: string
 ) {
-  const metadataWithTuple = {
-    ...metadata,
-    origin_px: `(${metadata.origin_px[0]}, ${metadata.origin_px[1]})`,
-    origin_value: metadata.origin_value ?? "(0, 0)",
-    x_max_px: `(${metadata.x_max_px[0]}, ${metadata.x_max_px[1]})`,
-    y_max_px: `(${metadata.y_max_px[0]}, ${metadata.y_max_px[1]})`,
-  };
+  console.log("metadata ==> ", metadata);
+  
+  let metadataWithTuple = metadata;
+  if(metadata.origin_px[0]){
+    metadataWithTuple = {
+      ...metadata,
+      origin_px: `(${metadata.origin_px[0]}, ${metadata.origin_px[1]})`,
+      origin_value: metadata.origin_value ?? "(0, 0)",
+      x_max_px: `(${metadata.x_max_px[0]}, ${metadata.x_max_px[1]})`,
+      y_max_px: `(${metadata.y_max_px[0]}, ${metadata.y_max_px[1]})`,
+    };
+  }
+
+  console.log("metadataWithTuple ==> ", metadataWithTuple);
 
   const payload = {
     points,
@@ -113,4 +122,30 @@ export async function exportCsv(
 
   if (!response.ok) throw new Error("Erreur export CSV");
   return response; // CSV à télécharger
+}
+
+export async function saveCaptures(csvContent: string, captures: Array<{ imageData: string; filename: string }>, outputPath: string) {
+    const formData = new FormData();
+    // Use the lot name for the CSV filename, following the pattern
+    const csvFilename = captures[0]!.filename.replace(/_MC_\d{3}\.jpg$/, '_MM_MC.csv');
+    formData.append('csv_report', new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }), csvFilename);
+    
+    for (const capture of captures) {
+        const response = await fetch(capture.imageData);
+        const blob = await response.blob();
+        formData.append('images', blob, capture.filename);
+    }
+
+    formData.append('outputPath', outputPath);
+
+    const response = await fetch("http://localhost:6003/api/cq/save_captures", {
+        method: "POST",
+        body: formData,
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Erreur lors de la sauvegarde des captures: ${errorText}`);
+    }
+    return await response.json();
 }

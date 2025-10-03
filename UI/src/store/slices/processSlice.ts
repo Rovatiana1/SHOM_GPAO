@@ -98,7 +98,20 @@ export const pauseCurrentLot = createAsyncThunk(
     if (!currentLot || !user) return rejectWithValue("No lot or user");
 
     try {
-      const params = {
+      // pour terminer la ligne prod en cours
+      const paramsEndLdt = {
+        _idDossier: currentLot.idDossier!,
+        _idEtape: currentLot.idEtape!,
+        _idPers: parseInt(user.userId, 10),
+        _idLotClient: currentLot.idLotClient!,
+        _idLot: currentLot.idLot!,
+        _idTypeLdt: 0, // 0 pour temps de travail standard
+        _qte: 1,
+      };
+      await gpaoService.endLdt(paramsEndLdt);
+
+      // pour créer une nouvelle ligne de temps de type pause
+      const paramsStartLdtPause = {
         _idDossier: currentLot.idDossier!,
         _idEtape: currentLot.idEtape!,
         _idPers: parseInt(user.userId, 10),
@@ -107,7 +120,7 @@ export const pauseCurrentLot = createAsyncThunk(
         _idTypeLdt: reason.id,
         _qte: 1,
       };
-      await gpaoService.endLdt(params);
+      await gpaoService.startNewLdt(paramsStartLdtPause);
       return reason.label; // Pass label to fulfilled action
     } catch (err: any) {
       return rejectWithValue(err.message);
@@ -117,12 +130,27 @@ export const pauseCurrentLot = createAsyncThunk(
 
 export const resumeCurrentLot = createAsyncThunk(
   "process/resumeCurrentLot",
-  async (_, { getState, rejectWithValue }) => {
+  async (
+    reason: { id: number; label: string },
+    { getState, rejectWithValue }
+  ) => {
     const { currentLot } = (getState() as RootState).process;
     const { user } = (getState() as RootState).auth;
     if (!currentLot || !user) return rejectWithValue("No lot or user");
     console.log("resumeCurrentLot called", currentLot, user);
     try {
+      // pour terminer la ligne de type pause
+      const paramsEndLdt = {
+        _idDossier: currentLot.idDossier!,
+        _idEtape: currentLot.idEtape!,
+        _idPers: parseInt(user.userId, 10),
+        _idLotClient: currentLot.idLotClient!,
+        _idLot: currentLot.idLot!,
+        _idTypeLdt: reason.id, // 0 pour temps de travail standard
+        _qte: 1,
+      };
+      await gpaoService.endLdt(paramsEndLdt);
+
       const params = {
         _idDossier: currentLot.idDossier!,
         _idEtape: currentLot.idEtape!,
@@ -173,6 +201,47 @@ export const completeAndMoveToNextStep = createAsyncThunk(
         };
         await gpaoService.injectNextEtape(nextEtapeParams);
       }
+    } catch (err: any) {
+      return rejectWithValue(err.message);
+    }
+  }
+);
+
+export const rejectToCQ = createAsyncThunk(
+  "process/rejectToCQ",
+  async (_, { getState, rejectWithValue }) => {
+    const { currentLot } = (getState() as RootState).process;
+    const { user } = (getState() as RootState).auth;
+    if (!currentLot || !user) return rejectWithValue("No lot or user");
+    try {
+      const endParams = {
+        _idDossier: currentLot.idDossier!,
+        _idEtape: currentLot.idEtape!,
+        _idPers: parseInt(user.userId, 10),
+        _idLotClient: currentLot.idLotClient!,
+        _idLot: currentLot.idLot!,
+        _idTypeLdt: 0,
+        _qte: 1,
+      };
+      await gpaoService.endLdt(endParams);
+
+      const updateLotParams = {
+        _idLot: currentLot.idLot!,
+        _idEtat: 6,
+        _qte: 1,
+      };
+      await gpaoService.updateLot(updateLotParams);
+
+      const nextEtapeParams = {
+        _idDossier: currentLot.idDossier!,
+        // _idNextEtape: currentLot.idNextEtape!,
+        _idNextEtape: 4674, // rejeter en CQ cible
+        _idLotClient: currentLot.idLotClient!,
+        _libelle: currentLot.libelle!,
+        _qte: 1,
+      };
+      await gpaoService.injectNextEtape(nextEtapeParams);
+
     } catch (err: any) {
       return rejectWithValue(err.message);
     }
@@ -257,6 +326,15 @@ const processSlice = createSlice({
         state.startTime = Date.now();
       })
       .addCase(completeAndMoveToNextStep.fulfilled, (state) => {
+        state.currentLot = null;
+        state.isProcessing = false;
+        state.startTime = null;
+        state.loading = false;
+        state.error = null;
+        state.paths = null;
+        state.pauseReason = null;
+      })
+      .addCase(rejectToCQ.fulfilled, (state) => {
         state.currentLot = null;
         state.isProcessing = false;
         state.startTime = null;

@@ -73,12 +73,26 @@ const Header: React.FC<{ user: User }> = ({ user }) => {
     dispatch(completeAndMoveToNextStep());
   };
 
+
+  const getTreatmentType = (idEtape: number) => {
+    switch (idEtape) {
+      case 4674:
+        return 'CQ cible';
+      case 4688:
+        return 'CQ ISO';
+      default:
+        return null;
+    }
+  };
+
+  const treatmentType = getTreatmentType(user.idEtape);
+
   return (
     <>
       <header className="bg-white border-b border-gray-200 z-20">
         <div className="flex items-center justify-between px-4 py-3 max-w-[80vw] mx-auto">
           <div className='flex justify-center items-center gap-4'>
-            <div className={`flex-shrink-0 flex items-center ${collapsed ? "justify-center" : "justify-between"}`}>
+            {/* <div className={`flex-shrink-0 flex items-center ${collapsed ? "justify-center" : "justify-between"}`}>
               <Link to="/" className="flex items-center space-x-2 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors">
                 <div className="w-8 h-8 rounded-md bg-green-600 flex items-center justify-center">
                   <i className={`fas fa-database text-white text-lg`}></i>
@@ -86,8 +100,12 @@ const Header: React.FC<{ user: User }> = ({ user }) => {
                 {!collapsed && <span className="font-bold text-gray-800">GPAO</span>}
               </Link>
             </div>
-            <div className="text-black">/</div>
-            <nav className="flex-1 overflow-y-auto px-2 space-y-2">
+            <div className="text-black">/</div> */}
+
+            {treatmentType && (
+              <span className="bg-indigo-100 text-indigo-800 text-lg font-bold px-2.5 py-0.5 rounded-lg">{treatmentType}</span>
+            )}
+            {/* <nav className="flex-1 overflow-y-auto px-2 space-y-2">
               <div className='flex items-center gap-1 justify-center text-xs font-bold'>
                 {filteredMenu.map((section) => (
                   <div key={section.title}>
@@ -97,7 +115,7 @@ const Header: React.FC<{ user: User }> = ({ user }) => {
                   </div>
                 ))}
               </div>
-            </nav>
+            </nav> */}
           </div>
           <div className="flex items-center space-x-4">
             {currentLot && (
@@ -160,3 +178,4 @@ const Header: React.FC<{ user: User }> = ({ user }) => {
 };
 
 export default Header;
+

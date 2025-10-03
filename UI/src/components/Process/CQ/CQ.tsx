@@ -1,14 +1,15 @@
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import Toolbar from './components/Toolbar';
 import CanvasComponent from './components/CanvasComponent';
 import ChartModal from './components/ChartModal';
-import { DateInfo, DisplayMode, Metadata, Point, ReperePoint } from '../../../types/Image';
+import CaptureModal from './components/CaptureModal';
+import { DateInfo, DisplayMode, Metadata, Point, ReperePoint, Capture } from '../../../types/Image';
 // FIX: Import `savePoints` to be used in the `handleExport` function.
-import { parseCsvFile, getFileFromPath, savePoints } from '../../../services/CQService';
+import { parseCsvFile, getFileFromPath, savePoints, saveCaptures } from '../../../services/CQService';
 import { useAppContext } from "../../../context/AppContext";
 import { useSelector } from 'react-redux';
 import { RootState } from '../../../store/store';
+import ToastNotification, { ToastType } from '../../../utils/components/ToastNotification';
 
 const CQ: React.FC = () => {
     const [points, setPoints] = useState<Point[]>([]);
@@ -40,6 +41,14 @@ const CQ: React.FC = () => {
 
     const [isSettingOrigin, setIsSettingOrigin] = useState(false);
 
+    // Screen Capture State
+    const [isCaptureMode, setIsCaptureMode] = useState(false);
+    const [captures, setCaptures] = useState<Capture[]>([]);
+    const [isCaptureModalOpen, setIsCaptureModalOpen] = useState(false);
+    const [capturedImage, setCapturedImage] = useState<string | null>(null);
+    const [nextCaptureInfo, setNextCaptureInfo] = useState<{ filename: string; correspondante: string } | null>(null);
+    const [isExportingCaptures, setIsExportingCaptures] = useState(false);
+    const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
     const resetState = useCallback(() => {
         setPoints([]);
         setOriginalPoints([]);
@@ -57,6 +66,10 @@ const CQ: React.FC = () => {
         setCsvFile(null);
         isAutoLoading.current = false;
         setIsSettingOrigin(false);
+        setCaptures([]);
+        setIsCaptureModalOpen(false);
+        setCapturedImage(null);
+        setIsCaptureMode(false);
     }, []);
 
     const processParsedData = useCallback((data: { metadata: Metadata; points: [number, number][]; dates: string[]; image: string }) => {
@@ -188,45 +201,22 @@ const CQ: React.FC = () => {
         setMetadata(JSON.parse(JSON.stringify(originalMetadata)));
     }, [originalPoints, originalDates, originalMetadata]);
 
-    // const handleExport = async (durationMinutes: number) => {
-    //     if (!metadata || points.length === 0) {
-    //         alert("No data to export.");
-    //         return;
-    //     }
-
-    //     try {
-    //         const response = await savePoints(points, dates, metadata, durationMinutes);
-    //         const blob = await response.blob();
-    //         const url = window.URL.createObjectURL(blob);
-    //         const link = document.createElement("a");
-    //         link.href = url;
-    //         link.setAttribute("download", `export_${new Date().toISOString().slice(0, 10)}.csv`);
-    //         document.body.appendChild(link);
-    //         link.click();
-    //         document.body.removeChild(link);
-    //     } catch (e) {
-    //         console.error(e);
-    //         alert("Erreur lors de l’export CSV");
-    //     }
-    // };
-
-
     const handleExport = async (durationMinutes: number) => {
         if (!metadata || points.length === 0) {
-            alert("No data to export.");
+            setToast({ message: `No data to export.`, type: 'error' });
             return;
         }
         try {
             const response = await savePoints(points, dates, metadata, durationMinutes, currentLot.paths.OUT_CQ);
             const result = await response.json();
             if (result.status === "success") {
-                alert(`Fichier exporté avec succès : ${result.file_path}`);
+                setToast({ message: `Fichier exporté avec succès : ${result.file_path}`, type: 'success' });
             } else {
-                alert("Erreur lors de l’export CSV");
+                setToast({ message: "Erreur lors de l’export CSV", type: 'error' });
             }
         } catch (e) {
             console.error(e);
-            alert("Erreur lors de l’export CSV");
+            setToast({ message: "Erreur lors de l’export CSV", type: 'error' });
         }
     };
 
@@ -244,6 +234,7 @@ const CQ: React.FC = () => {
     const startAddingPoint = () => {
         if (!selectedDate) {
             alert("Veuillez sélectionner une date avant d'ajouter un repère.");
+            setToast({ message: "Veuillez sélectionner une date avant d'ajouter un repère.", type: 'info' });
             return;
         }
         setAddingPoint(true);
@@ -322,9 +313,80 @@ const CQ: React.FC = () => {
         setIsSettingOrigin(false);
     };
 
+    const handleStartCapture = () => {
+        setIsCaptureMode(true);
+    };
+
+    const handleCaptureComplete = (dataUrl: string) => {
+        setIsCaptureMode(false); // Exit capture mode
+
+        if (!metadata || !currentLot) {
+            setError("Impossible de sauvegarder la capture : métadonnées ou informations sur le lot manquantes.");
+            return;
+        }
+
+        const correspondante = currentLot.libelle;
+        const baseName = correspondante.replace(/\.tif$/, '');
+        const newIndex = (captures.length + 1).toString().padStart(3, '0');
+        const filename = `${baseName}_MC_${newIndex}.jpg`;
+
+        setNextCaptureInfo({ filename, correspondante });
+        setCapturedImage(dataUrl);
+        setIsCaptureModalOpen(true);
+    };
+
+    const handleCaptureCancel = () => {
+        setIsCaptureMode(false);
+    };
+
+    const handleSaveCapture = (type: string, nature: string) => {
+        if (!capturedImage || !metadata) return;
+        const baseName = metadata.Img_path.replace('.tif', '');
+        const newIndex = (captures.length + 1).toString().padStart(3, '0');
+        const filename = `${baseName}_MC_${newIndex}.jpg`;
+        setCaptures(prev => [...prev, { imageData: capturedImage, type, nature, filename }]);
+        setIsCaptureModalOpen(false);
+        setCapturedImage(null);
+    };
+
+    const handleCancelSavedCapture = () => {
+        setIsCaptureModalOpen(false);
+        setCapturedImage(null);
+        setNextCaptureInfo(null);
+    };
+
+    const handleExportCaptures = async () => {
+        if (captures.length === 0 || !metadata || !currentLot || !paths?.out) {
+            setToast({ message: "Aucune capture à exporter, métadonnées ou chemin de sortie manquants.", type: 'error' });
+            return;
+        }
+
+        setIsExportingCaptures(true);
+        setToast(null);
+
+        const mainImageName = metadata.Img_path;
+        let csvContent = "image correspondante;nom de l'image;type;nature\n";
+        captures.forEach(capture => {
+            csvContent += `${mainImageName};${capture.filename};"${capture.type}";"${capture.nature}"\n`;
+        });
+
+        try {
+            const response = await saveCaptures(csvContent, captures, paths.out);
+            setToast({ message: `Captures exportées avec succès : ${response.message}`, type: 'success' });
+            setCaptures([]);
+        } catch (e) {
+            console.error(e);
+            const errorMessage = e instanceof Error ? e.message : String(e);
+            setToast({ message: `Erreur lors de l'export des captures: ${errorMessage}`, type: 'error' });
+        } finally {
+            setIsExportingCaptures(false);
+        }
+    };
+
 
     return (
         <div className="flex h-full w-full font-sans">
+            {toast && <ToastNotification message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
             <Toolbar
                 onFileChange={handleFileChange}
                 uniqueDates={uniqueDates}
@@ -347,6 +409,10 @@ const CQ: React.FC = () => {
                 autoLoadedFilename={autoLoadedFilename}
                 csvFile={csvFile}
                 setCsvFile={handleManualFileSelect}
+                onStartCapture={handleStartCapture}
+                onExportCaptures={handleExportCaptures}
+                captureCount={captures.length}
+                isExportingCaptures={isExportingCaptures}
             />
             <main className="relative flex-1 flex items-center justify-center bg-gray-200 p-4 overflow-hidden h-[90vh]">
                 {(imageLoading) && (
@@ -398,11 +464,14 @@ const CQ: React.FC = () => {
                         isSettingOrigin={isSettingOrigin}
                         setIsSettingOrigin={setIsSettingOrigin}
                         saveNewOrigin={saveNewOrigin}
+                        isCaptureMode={isCaptureMode}
+                        onCapture={handleCaptureComplete}
+                        onCancelCapture={handleCaptureCancel}
                     />
                 ) : (
                     <div className="text-center p-8 border-2 border-dashed border-gray-400 rounded-lg bg-white">
-                        <h2 className="text-2xl font-semibold text-gray-700">Welcome</h2>
-                        <p className="mt-2 text-gray-500">Please upload a CSV and an Image file using the toolbar to begin.</p>
+                        <h2 className="text-2xl font-semibold text-gray-700">Bienvenue</h2>
+                        <p className="mt-2 text-gray-500">Veuillez télécharger un fichier CSV et un fichier image à l'aide de la barre d'outils pour commencer.</p>
                     </div>
                 )}
             </main>
@@ -412,6 +481,16 @@ const CQ: React.FC = () => {
                     dates={dates}
                     uniqueDates={uniqueDates}
                     onClose={() => setChartVisible(false)}
+                />
+            )}
+            {isCaptureModalOpen && capturedImage && nextCaptureInfo && (
+                <CaptureModal
+                    isOpen={isCaptureModalOpen}
+                    onClose={handleCancelSavedCapture}
+                    onSave={handleSaveCapture}
+                    imageData={capturedImage}
+                    imageCorrespondante={nextCaptureInfo.correspondante}
+                    captureFilename={nextCaptureInfo.filename}
                 />
             )}
         </div>

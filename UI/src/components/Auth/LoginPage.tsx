@@ -100,8 +100,8 @@ const LoginPage: React.FC = () => {
                             onChange={(e) => setIdEtape(Number(e.target.value))}
                             className="block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 py-2 px-3 border"
                         >
-                            <option value={4674}>CQ</option>
-                            <option value={4688}>CQ_ISO</option>
+                            <option value={4674}>CQ cible</option>
+                            <option value={4688}>CQ ISO</option>
                         </select>
                     </div>
 
