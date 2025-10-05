@@ -2,12 +2,14 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import Toolbar from './components/Toolbar';
 import CanvasComponent from './components/CanvasComponent';
 import ChartModal from './components/ChartModal';
-import { DateInfo, DisplayMode, Metadata, Point } from '../../../types/Image';
+import CaptureModal from './components/CaptureModal';
+import { DateInfo, DisplayMode, Metadata, Point, ReperePoint, Capture } from '../../../types/Image';
 // FIX: Import `savePoints` to be used in the `handleExport` function.
-import { parseCsvFile, getFileFromPath, savePoints } from '../../../services/CQService';
+import { parseCsvFile, getFileFromPath, savePoints, saveCaptures } from '../../../services/CQService';
 import { useAppContext } from "../../../context/AppContext";
 import { useSelector } from 'react-redux';
 import { RootState } from '../../../store/store';
+import ToastNotification, { ToastType } from '../../../utils/components/ToastNotification';
 
 const CQ: React.FC = () => {
     const [points, setPoints] = useState<Point[]>([]);
@@ -37,6 +39,16 @@ const CQ: React.FC = () => {
     const processedLotId = useRef<number | null>(null);
     const [imageLoading, setImageLoading] = useState(false);
 
+    const [isSettingOrigin, setIsSettingOrigin] = useState(false);
+
+    // Screen Capture State
+    const [isCaptureMode, setIsCaptureMode] = useState(false);
+    const [captures, setCaptures] = useState<Capture[]>([]);
+    const [isCaptureModalOpen, setIsCaptureModalOpen] = useState(false);
+    const [capturedImage, setCapturedImage] = useState<string | null>(null);
+    const [nextCaptureInfo, setNextCaptureInfo] = useState<{ filename: string; correspondante: string } | null>(null);
+    const [isExportingCaptures, setIsExportingCaptures] = useState(false);
+    const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
     const resetState = useCallback(() => {
         setPoints([]);
         setOriginalPoints([]);
@@ -53,13 +65,36 @@ const CQ: React.FC = () => {
         setAutoLoadedFilename(null);
         setCsvFile(null);
         isAutoLoading.current = false;
+        setIsSettingOrigin(false);
+        setCaptures([]);
+        setIsCaptureModalOpen(false);
+        setCapturedImage(null);
+        setIsCaptureMode(false);
     }, []);
 
     const processParsedData = useCallback((data: { metadata: Metadata; points: [number, number][]; dates: string[]; image: string }) => {
         const { metadata, points, dates, image } = data;
 
-        setMetadata(metadata);
-        setOriginalMetadata(JSON.parse(JSON.stringify(metadata)));
+        // Helper to sanitize coordinate data from strings like "(x, y)" to [x, y]
+        const parseCoords = (coord: any): ReperePoint => {
+            if (Array.isArray(coord) && coord.length === 2 && typeof coord[0] === 'number' && typeof coord[1] === 'number') {
+                return coord as ReperePoint;
+            }
+            const match = String(coord).match(/\(?\s*([0-9.-]+)\s*,\s*([0-9.-]+)\s*\)?/);
+            if (!match) return [0, 0];
+            return [parseFloat(match[1]!), parseFloat(match[2]!)];
+        };
+
+        // Sanitize metadata to ensure coordinates are always arrays of numbers
+        const sanitizedMetadata: Metadata = {
+            ...metadata,
+            origin_px: parseCoords(metadata.origin_px),
+            x_max_px: parseCoords(metadata.x_max_px),
+            y_max_px: parseCoords(metadata.y_max_px),
+        };
+
+        setMetadata(sanitizedMetadata);
+        setOriginalMetadata(JSON.parse(JSON.stringify(sanitizedMetadata)));
 
         setCollapsed(true);
         const baseColors = [
@@ -91,8 +126,8 @@ const CQ: React.FC = () => {
                     color: baseColors[index % baseColors.length]!,
                 }))
             );
-            
-            setImageLoading(false); // 👉 stop une fois que l'image est bien chargée
+
+            setImageLoading(false);
         };
         img.onerror = () => {
             setError("Erreur lors du chargement de l’image.");
@@ -103,20 +138,20 @@ const CQ: React.FC = () => {
 
     const handleFileChange = useCallback(async (file: File) => {
         setError(null);
-        setImageLoading(true); // 👉 on commence à charger l'image
+        setImageLoading(true);
 
         console.log('Processing file:', file.name, file, currentLot);
         try {
-            const data = await parseCsvFile(file, currentLot?.paths?.IMAGE_OPT_PATH, currentLot?.paths?.IMAGE_TIF_PATH);
+            const data = await parseCsvFile(file, currentLot.paths.IMAGE_PATH);
             processParsedData(data);
         } catch (err) {
             console.error(err);
             setError("Impossible de parser le fichier CSV.");
-            setImageLoading(false); // 👉 stop si erreur
+            setImageLoading(false);
         } finally {
             isAutoLoading.current = false;
         }
-    }, [processParsedData]);
+    }, [processParsedData, currentLot]);
 
     const handleManualFileSelect = (file: File | null) => {
         setAutoLoadedFilename(null);
@@ -145,7 +180,7 @@ const CQ: React.FC = () => {
                 }
             };
 
-            autoLoadAndProcess(paths.in);
+            autoLoadAndProcess(currentLot.paths.IN_CQ); // on force ici mais normalement ca doit etre path.in => ca vient de processSlice
         }
 
         if (!currentLot) {
@@ -168,23 +203,20 @@ const CQ: React.FC = () => {
 
     const handleExport = async (durationMinutes: number) => {
         if (!metadata || points.length === 0) {
-            alert("No data to export.");
+            setToast({ message: `No data to export.`, type: 'error' });
             return;
         }
-
         try {
-            const response = await savePoints(points, dates, metadata, durationMinutes);
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.href = url;
-            link.setAttribute("download", `export_${new Date().toISOString().slice(0, 10)}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            const response = await savePoints(points, dates, metadata, durationMinutes, currentLot.paths.OUT_CQ);
+            const result = await response.json();
+            if (result.status === "success") {
+                setToast({ message: `Fichier exporté avec succès : ${result.file_path}`, type: 'success' });
+            } else {
+                setToast({ message: "Erreur lors de l’export CSV", type: 'error' });
+            }
         } catch (e) {
             console.error(e);
-            alert("Erreur lors de l’export CSV");
+            setToast({ message: "Erreur lors de l’export CSV", type: 'error' });
         }
     };
 
@@ -202,6 +234,7 @@ const CQ: React.FC = () => {
     const startAddingPoint = () => {
         if (!selectedDate) {
             alert("Veuillez sélectionner une date avant d'ajouter un repère.");
+            setToast({ message: "Veuillez sélectionner une date avant d'ajouter un repère.", type: 'info' });
             return;
         }
         setAddingPoint(true);
@@ -222,8 +255,138 @@ const CQ: React.FC = () => {
         setTempPoint(null);
     };
 
+    const startSettingOrigin = () => {
+        setIsSettingOrigin(true);
+    };
+
+    const saveNewOrigin = (newRepere: { origin: Point; xAxis: Point; yAxis: Point }) => {
+        if (!originalMetadata || !originalPoints || !metadata) return;
+
+        // 1. Define old basis from original metadata (now guaranteed to be [number, number])
+        const O_old = originalMetadata.origin_px;
+        const X_max_old = originalMetadata.x_max_px;
+        const Y_max_old = originalMetadata.y_max_px;
+
+        const VX_old = [X_max_old[0] - O_old[0], X_max_old[1] - O_old[1]];
+        const VY_old = [Y_max_old[0] - O_old[0], Y_max_old[1] - O_old[1]];
+
+        // 2. Define new basis from user input
+        const O_new = [newRepere.origin.x, newRepere.origin.y];
+        const X_max_new = [newRepere.xAxis.x, newRepere.xAxis.y];
+        const Y_max_new = [newRepere.yAxis.x, newRepere.yAxis.y];
+
+        const VX_new = [X_max_new[0]! - O_new[0]!, X_max_new[1]! - O_new[1]!];
+        const VY_new = [Y_max_new[0]! - O_new[0]!, Y_max_new[1]! - O_new[1]!];
+
+        // 3. Calculate inverse of the old transformation matrix determinant
+        const det_old = VX_old[0]! * VY_old[1]! - VY_old[0]! * VX_old[1]!;
+        if (Math.abs(det_old) < 1e-6) {
+            setError("L'ancien repère n'est pas valide (axes colinéaires).");
+            setIsSettingOrigin(false);
+            return;
+        }
+
+        // 4. Transform each original point
+        const newPoints = originalPoints.map(p_orig => {
+            const p_vec = [p_orig.x - O_old[0], p_orig.y - O_old[1]];
+
+            // Solve for logical coordinates (u, v) where P-O = u*VX + v*VY
+            const u = (p_vec[0]! * VY_old[1]! - p_vec[1]! * VY_old[0]!) / det_old;
+            const v = (p_vec[1]! * VX_old[0]! - p_vec[0]! * VX_old[1]!) / det_old;
+
+            // Apply new transformation
+            const newX = O_new[0]! + u * VX_new[0]! + v * VY_new[0]!;
+            const newY = O_new[1]! + u * VX_new[1]! + v * VY_new[1]!;
+
+            return { ...p_orig, x: newX, y: newY };
+        });
+
+        setPoints(newPoints);
+
+        // 5. Update metadata
+        const newMetadata: Metadata = JSON.parse(JSON.stringify(metadata));
+        newMetadata.origin_px = [newRepere.origin.x, newRepere.origin.y];
+        newMetadata.x_max_px = [newRepere.xAxis.x, newRepere.xAxis.y];
+        newMetadata.y_max_px = [newRepere.yAxis.x, newRepere.yAxis.y];
+        setMetadata(newMetadata);
+
+        setIsSettingOrigin(false);
+    };
+
+    const handleStartCapture = () => {
+        setIsCaptureMode(true);
+    };
+
+    const handleCaptureComplete = (dataUrl: string) => {
+        setIsCaptureMode(false); // Exit capture mode
+
+        if (!metadata || !currentLot) {
+            setError("Impossible de sauvegarder la capture : métadonnées ou informations sur le lot manquantes.");
+            return;
+        }
+
+        const correspondante = currentLot.libelle;
+        const baseName = correspondante.replace(/\.tif$/, '');
+        const newIndex = (captures.length + 1).toString().padStart(3, '0');
+        const filename = `${baseName}_MC_${newIndex}.jpg`;
+
+        setNextCaptureInfo({ filename, correspondante });
+        setCapturedImage(dataUrl);
+        setIsCaptureModalOpen(true);
+    };
+
+    const handleCaptureCancel = () => {
+        setIsCaptureMode(false);
+    };
+
+    const handleSaveCapture = (type: string, nature: string) => {
+        if (!capturedImage || !metadata) return;
+        const baseName = metadata.Img_path.replace('.tif', '');
+        const newIndex = (captures.length + 1).toString().padStart(3, '0');
+        const filename = `${baseName}_MC_${newIndex}.jpg`;
+        setCaptures(prev => [...prev, { imageData: capturedImage, type, nature, filename }]);
+        setIsCaptureModalOpen(false);
+        setCapturedImage(null);
+    };
+
+    const handleCancelSavedCapture = () => {
+        setIsCaptureModalOpen(false);
+        setCapturedImage(null);
+        setNextCaptureInfo(null);
+    };
+
+    const handleExportCaptures = async () => {
+        if (captures.length === 0 || !metadata || !currentLot || !paths?.out) {
+            setToast({ message: "Aucune capture à exporter, métadonnées ou chemin de sortie manquants.", type: 'error' });
+            return;
+        }
+
+        setIsExportingCaptures(true);
+        setToast(null);
+
+        const mainImageName = metadata.Img_path;
+        let csvContent = "image correspondante;nom de l'image;type;nature\n";
+        captures.forEach(capture => {
+            csvContent += `${mainImageName};${capture.filename};"${capture.type}";"${capture.nature}"\n`;
+        });
+
+        try {
+            const response = await saveCaptures(csvContent, captures, paths.out);
+            setToast({ message: `Captures exportées avec succès : ${response.message}`, type: 'success' });
+            setCaptures([]);
+        } catch (e) {
+            console.error(e);
+            const errorMessage = e instanceof Error ? e.message : String(e);
+            setToast({ message: `Erreur lors de l'export des captures: ${errorMessage}`, type: 'error' });
+        } finally {
+            setIsExportingCaptures(false);
+        }
+    };
+
+
     return (
         <div className="flex h-full w-full font-sans">
+            {toast && <ToastNotification message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
             <Toolbar
                 onFileChange={handleFileChange}
                 uniqueDates={uniqueDates}
@@ -242,13 +405,18 @@ const CQ: React.FC = () => {
                 hasData={!!imageElement}
                 error={error}
                 onStartAddingPoint={startAddingPoint}
+                onStartSettingOrigin={startSettingOrigin}
                 autoLoadedFilename={autoLoadedFilename}
                 csvFile={csvFile}
                 setCsvFile={handleManualFileSelect}
+                onStartCapture={handleStartCapture}
+                onExportCaptures={handleExportCaptures}
+                captureCount={captures.length}
+                isExportingCaptures={isExportingCaptures}
             />
             <main className="relative flex-1 flex items-center justify-center bg-gray-200 p-4 overflow-hidden h-[90vh]">
-                {(processLoading || imageLoading) && (
-                    <div className="absolute inset-0 bg-black bg-opacity-70 backdrop-blur-md flex items-center justify-center z-50">
+                {(imageLoading) && (
+                    <div className="absolute inset-0 bg-black bg-opacity-70 backdrop-blur-md flex items-center justify-center z-40">
                         <div className="flex flex-col items-center">
                             <svg
                                 className="animate-spin h-10 w-10 text-white mb-3"
@@ -293,11 +461,17 @@ const CQ: React.FC = () => {
                         tempPoint={tempPoint}
                         cancelAddingPoint={cancelAddingPoint}
                         savePoint={savePoint}
+                        isSettingOrigin={isSettingOrigin}
+                        setIsSettingOrigin={setIsSettingOrigin}
+                        saveNewOrigin={saveNewOrigin}
+                        isCaptureMode={isCaptureMode}
+                        onCapture={handleCaptureComplete}
+                        onCancelCapture={handleCaptureCancel}
                     />
                 ) : (
                     <div className="text-center p-8 border-2 border-dashed border-gray-400 rounded-lg bg-white">
-                        <h2 className="text-2xl font-semibold text-gray-700">Welcome</h2>
-                        <p className="mt-2 text-gray-500">Please upload a CSV and an Image file using the toolbar to begin.</p>
+                        <h2 className="text-2xl font-semibold text-gray-700">Bienvenue</h2>
+                        <p className="mt-2 text-gray-500">Veuillez télécharger un fichier CSV et un fichier image à l'aide de la barre d'outils pour commencer.</p>
                     </div>
                 )}
             </main>
@@ -307,6 +481,16 @@ const CQ: React.FC = () => {
                     dates={dates}
                     uniqueDates={uniqueDates}
                     onClose={() => setChartVisible(false)}
+                />
+            )}
+            {isCaptureModalOpen && capturedImage && nextCaptureInfo && (
+                <CaptureModal
+                    isOpen={isCaptureModalOpen}
+                    onClose={handleCancelSavedCapture}
+                    onSave={handleSaveCapture}
+                    imageData={capturedImage}
+                    imageCorrespondante={nextCaptureInfo.correspondante}
+                    captureFilename={nextCaptureInfo.filename}
                 />
             )}
         </div>

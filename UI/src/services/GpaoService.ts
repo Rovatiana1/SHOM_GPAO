@@ -54,7 +54,7 @@ class GpaoService {
         return this.post('/ldt/end', params);
     }
 
-    injectNextEtape(params: { _idDossier: number; _idEtape: number; _idLotClient: number; _libelle: string; _qte: number; }) {
+    injectNextEtape(params: { _idDossier: number; _idNextEtape: number; _idLotClient: number; _libelle: string; _qte: number; }) {
         return this.post('/lot/inject-next-etape', params);
     }
 

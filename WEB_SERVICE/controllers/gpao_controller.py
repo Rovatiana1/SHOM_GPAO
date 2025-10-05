@@ -4,6 +4,7 @@ from WEB_SERVICE.services.gpao_service import GpaoService
 def get_lot(data):
     token = request.headers.get("Authorization", "").replace("Bearer ", "")
     result = GpaoService.get_lot(data, token)
+    print("result ==> ", result)
     return jsonify(result or {"error": "Impossible de récupérer le lot"}), 200 if result else 400
 
 def start_ldt(data):

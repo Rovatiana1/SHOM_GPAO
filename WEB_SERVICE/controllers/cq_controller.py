@@ -48,10 +48,9 @@ def parse_csv_api():
         file = request.files.get('csvfile')
 
         # Récupérer les query params
-        image_opt_path = request.args.get("image_opt_path")
-        image_tif_path = request.args.get("image_tif_path")
+        image_path = request.args.get("image_path")
 
-        print(f"Received image_opt_path: {image_opt_path}, image_tif_path: {image_tif_path}", file=sys.stderr)
+        print(f"Received image_path: {image_path}")
 
         # Vérifier que le CSV est bien fourni
         if file and file.filename.endswith('.csv'):
@@ -64,9 +63,9 @@ def parse_csv_api():
                 metadata, df = parse_metadata_and_data(csv_path)
 
                 # Utiliser soit metadata, soit les query params
-                image_path_metadata = metadata.get("Img_path") or image_opt_path
+                image_path_metadata = metadata.get("Img_path") or image_path
 
-                img_with_points, point_coords, date_list = draw_points_on_image(image_opt_path, image_tif_path, image_path_metadata, df, metadata)
+                img_with_points, point_coords, date_list = draw_points_on_image(image_path, image_path_metadata, df, metadata)
                 encoded_image = image_to_base64(img_with_points)
 
                 return jsonify({
@@ -91,14 +90,37 @@ def parse_csv_api():
 def save_points():
     try:
         data = request.get_json(silent=True)
+        print("data non clean:", data)
         metadata = clean_and_validate_metadata(data.get("metadata", {}))
-        session["metadata"] = json.dumps(metadata)
+        session["metadata"] = json.dumps(metadata)        
 
-        response = build_and_export_csv(data, metadata)
-        return response
+        print("metadata save_points:", metadata)
+        export_path = build_and_export_csv(data, metadata)
+        
+        # # exporter le fichier csv dans le repertoire OUT_CQ
+        # if not export_path or not os.path.exists(export_path):
+        #     raise FileNotFoundError(f"❌ Échec de l'exportation du CSV à {export_path}")
+        
+        
+        # print(f"✅ CSV exporté avec succès à {export_path}")
+
+        # # Envoie le CSV au client
+        # return send_file(
+        #     export_path,
+        #     mimetype="text/csv",
+        #     as_attachment=True,
+        #     download_name=os.path.basename(export_path)
+        # )
+        return jsonify({
+            "status": "success",
+            "message": f"✅ CSV exporté avec succès à {export_path}",
+            "file_path": export_path
+        })
+        
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-   
+    
+    
 # POST /export
 def export_csv():
     data = request.json

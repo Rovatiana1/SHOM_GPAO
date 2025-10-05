@@ -4,5 +4,7 @@ export type UserRole = 'ADMIN' | 'MANAGER' | 'USER';
 export interface User {
   userId: string;
   userName: string;
-  roles: UserRole[];
+  roles: UserRole[];  
+  idEtape: number;
+  idLotClient: number;
 }
