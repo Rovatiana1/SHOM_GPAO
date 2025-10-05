@@ -5,7 +5,8 @@ import ChartModal from './components/ChartModal';
 import CaptureModal from './components/CaptureModal';
 import { DateInfo, DisplayMode, Metadata, Point, ReperePoint, Capture } from '../../../types/Image';
 // FIX: Import `savePoints` to be used in the `handleExport` function.
-import { parseCsvFile, getFileFromPath, savePoints, saveCaptures } from '../../../services/CQService';
+// import { parseCsvFile, getFileFromPath, savePoints, saveCaptures } from '../../../services/CQService';
+import CQService from '../../../services/CQService';
 import { useAppContext } from "../../../context/AppContext";
 import { useSelector } from 'react-redux';
 import { RootState } from '../../../store/store';
@@ -142,7 +143,7 @@ const CQ: React.FC = () => {
 
         console.log('Processing file:', file.name, file, currentLot);
         try {
-            const data = await parseCsvFile(file, currentLot.paths.IMAGE_PATH);
+            const data = await CQService.parseCsvFile(file, currentLot.paths.IMAGE_PATH);
             processParsedData(data);
         } catch (err) {
             console.error(err);
@@ -168,7 +169,7 @@ const CQ: React.FC = () => {
             const autoLoadAndProcess = async (path: string) => {
                 setError(null);
                 try {
-                    const { name, content } = await getFileFromPath(path);
+                    const { name, content } = await CQService.getFileFromPath(path);
                     const newFile = new File([content], name, { type: 'text/csv' });
                     setAutoLoadedFilename(name);
                     setCsvFile(newFile);
@@ -207,7 +208,7 @@ const CQ: React.FC = () => {
             return;
         }
         try {
-            const response = await savePoints(points, dates, metadata, durationMinutes, currentLot.paths.OUT_CQ);
+            const response = await CQService.savePoints(points, dates, metadata, durationMinutes, currentLot.paths.OUT_CQ);
             const result = await response.json();
             if (result.status === "success") {
                 setToast({ message: `Fichier exporté avec succès : ${result.file_path}`, type: 'success' });
@@ -371,7 +372,7 @@ const CQ: React.FC = () => {
         });
 
         try {
-            const response = await saveCaptures(csvContent, captures, paths.out);
+            const response = await CQService.saveCaptures(csvContent, captures, paths.out);
             setToast({ message: `Captures exportées avec succès : ${response.message}`, type: 'success' });
             setCaptures([]);
         } catch (e) {

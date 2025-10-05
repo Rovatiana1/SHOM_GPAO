@@ -34,6 +34,8 @@ aniso8601>=1.22.0  # Supporte Python 3.11+
 
 # Image
 PyPDF2
+opencv-python
+scipy
 
 # async tasks
 celery

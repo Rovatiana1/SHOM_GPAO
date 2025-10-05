@@ -1,6 +1,9 @@
 import requests
 import os
 from WEB_SERVICE.models.lot_model import Lot
+from WEB_SERVICE.models.lot_commentaire_model import LotCommentaire
+from WEB_SERVICE.models.etape_model import Etape
+from WEB_SERVICE.models.etat_model import Etat
 from WEB_SERVICE.utils.constant import BASE_PATH, BASE_URL_API_GPAO, ID_ETAPE_CQ_ISO
 
 class GpaoService:

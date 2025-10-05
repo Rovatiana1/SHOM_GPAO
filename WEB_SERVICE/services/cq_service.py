@@ -211,7 +211,6 @@ def build_and_export_csv(data: dict, metadata: dict):
     # 9️⃣ Retourne le chemin pour l'envoi via Flask
     return export_path
 
-
 def calcul_sample(pop):
     """Retourne la taille de l'échantillon selon la population."""
     thresholds = [
@@ -236,7 +235,6 @@ def calcul_sample(pop):
         if low <= pop <= high:
             return sample
     return pop  # si pop < 2, on retourne la population elle-même
-
 
 def get_sampled_points(points, dates):
     sampled_points = []

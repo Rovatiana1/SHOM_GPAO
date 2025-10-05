@@ -26,7 +26,7 @@ const initialState: ProcessState = {
 // Async Thunks
 export const fetchCurrentLot = createAsyncThunk(
   "process/fetchCurrentLot",
-  async (userId: number, { getState, rejectWithValue }) => {
+  async (_, { getState, rejectWithValue }) => {
     const { currentLot, loading } = (getState() as RootState).process;
     const { user } = (getState() as RootState).auth;
 
@@ -38,7 +38,12 @@ export const fetchCurrentLot = createAsyncThunk(
     }
 
     try {
-      const response = await gpaoService.getCurrentLotForUser(userId);
+      const response = await gpaoService.getCurrentLotForUser(
+        918, // 005822_LOT6
+        user.idEtape,
+        parseInt(user.userId, 10),
+        user.idLotClient
+      );
       return {
         response,
         userEtape: user.idEtape,
@@ -69,7 +74,7 @@ export const getAndStartNextLot = createAsyncThunk(
     }
     try {
       const lotData = await gpaoService.getLot(
-        918,
+        918, // 005822_LOT6
         user.idEtape,
         parseInt(user.userId, 10),
         user.idLotClient

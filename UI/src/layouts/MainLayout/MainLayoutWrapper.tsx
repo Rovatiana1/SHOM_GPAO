@@ -17,7 +17,8 @@ const MainLayoutWrapper: React.FC = () => {
     // authoritative processing state and clear any stale "loading" flags from a previous session.
     if (user && !fetchAttempted.current) {
       fetchAttempted.current = true;
-      dispatch(fetchCurrentLot(parseInt(user.userId, 10)));
+      // dispatch(fetchCurrentLot(parseInt(user.userId, 10)));
+      dispatch(fetchCurrentLot());
     }
   }, [user, dispatch]);
   

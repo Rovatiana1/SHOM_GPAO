@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import traceback
 import secrets
 import os
+import WEB_SERVICE.seed_data
 
 # --- Chargement des modules locaux ---
 from WEB_SERVICE.config import postgresqlConfig
@@ -65,6 +66,14 @@ app.config.update({
 CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 Compress(app)
 db.init_app(app)
+
+
+# Création automatique des tables pour SQLite
+with app.app_context():
+    if "sqlite" in postgresqlConfig:
+        print("🧩 Création des tables SQLite (si non existantes)...")
+        db.create_all()
+
 
 # ---------------------------------------------------------
 # Routes API protégées

@@ -80,7 +80,7 @@ const LoginPage: React.FC = () => {
             <div className="bg-white rounded-xl shadow-lg overflow-hidden w-full max-w-md" data-aos="fade-up">
                 <div className="bg-green-50 py-6 px-4 border-b border-green-100">
                     <h2 className="mt-4 text-center text-2xl font-bold text-gray-800">Connexion au système</h2>
-                    <p className="mt-1 text-center text-sm text-gray-600">Authentification LDAPS</p>
+                    <p className="mt-1 text-center text-sm text-gray-600">Session interne</p>
                 </div>
                 
                 <form className="px-8 py-6" onSubmit={handleSubmit} noValidate>

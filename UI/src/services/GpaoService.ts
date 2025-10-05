@@ -31,10 +31,17 @@ class GpaoService {
         }
     }
 
-    getCurrentLotForUser(idPers: number) {
+    getCurrentLotForUser(idDossier: number, idEtape: number, idPers: number, idLotClient: number) {
         // This new endpoint should find if there's an active LDT for the user
         // and return the lot details along with the LDT start time.
-        return this.post('/lot/get-current', { _idPers: idPers });
+        
+        // return this.post('/lot/get-current', { _idPers: idPers });
+        return this.post('/lot/get-lot', {
+            _idDossier: idDossier,
+            _idEtape: idEtape,
+            _idPers: idPers,
+            _idLotClient: idLotClient,
+        });
     }
 
     getLot(idDossier: number, idEtape: number, idPers: number, idLotClient: number) {

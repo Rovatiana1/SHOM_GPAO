@@ -4,7 +4,8 @@ import CanvasComponent from './components/CanvasComponent';
 import ConfirmationModal from './components/ConfirmationModal';
 import ValidationControls from './components/ValidationControls';
 import { DateInfo, DisplayMode, Metadata, Point } from '../../../types/Image';
-import { parseCsvFile, getFileFromPath, savePoints } from '../../../services/CQService';
+// import { parseCsvFile, getFileFromPath, savePoints } from '../../../services/CQService';
+import CQService from '../../../services/CQService';
 import { useAppContext } from "../../../context/AppContext";
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../../../store/store';
@@ -118,7 +119,7 @@ const CQ_ISO: React.FC = () => {
             return;
         }
         try {
-            const data = await parseCsvFile(file, currentLot.paths.IMAGE_PATH);
+            const data = await CQService.parseCsvFile(file, currentLot.paths.IMAGE_PATH);
             processParsedData(data);
         } catch (err) {
             console.error(err);
@@ -143,7 +144,7 @@ const CQ_ISO: React.FC = () => {
             const autoLoadAndProcess = async (path: string) => {
                 setError(null);
                 try {
-                    const { name, content } = await getFileFromPath(path);
+                    const { name, content } = await CQService.getFileFromPath(path);
                     const newFile = new File([content], name, { type: 'text/csv' });
                     setAutoLoadedFilename(name);
                     setCsvFile(newFile);
@@ -189,7 +190,7 @@ const CQ_ISO: React.FC = () => {
             console.log("metadata for export ==> ", metadata);
             console.log("points for export ==> ", points);
             console.log("currentLot.paths.OUT_CQ_ISO for export ==> ", currentLot.paths.OUT_CQ_ISO);
-            const response = await savePoints(points, dates, metadata, 5, currentLot.paths.OUT_CQ_ISO);
+            const response = await CQService.savePoints(points, dates, metadata, 5, currentLot.paths.OUT_CQ_ISO);
             const result = await response.json();
             if (result.status === "success") {
                 alert(`Fichier exporté avec succès : ${result.file_path}`);
