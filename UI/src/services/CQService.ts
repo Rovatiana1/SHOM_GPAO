@@ -1,142 +1,19 @@
-// import { Point } from "../types/Image";
-
-// export async function parseCsvFile(csvFile: File, imagePath: string) {
-//   const formData = new FormData();
-//   formData.append("csvfile", csvFile);
-
-//   const response = await fetch(
-//     `http://localhost:6003/api/cq/parse_csv?image_path=${imagePath}`,
-//     {
-//       method: "POST",
-//       body: formData,
-//     }
-//   );
-
-//   if (!response.ok) throw new Error("Erreur lors du traitement CSV");
-//   return await response.json(); // { metadata, points, dates, image }
-// }
-
-// export async function getFileFromPath(
-//   path: string
-// ): Promise<{ name: string; content: string }> {
-//   console.log("getFileFromPath path ==> ", path);
-//   const response = await fetch(
-//     "http://localhost:6003/api/cq/get_file_from_path",
-//     {
-//       method: "POST",
-//       headers: { "Content-Type": "application/json" },
-//       body: JSON.stringify({ path }),
-//     }
-//   );
-
-//   if (!response.ok) {
-//     const errorText = await response.text();
-//     throw new Error(`Erreur lors de la récupération du fichier : ${errorText}`);
-//   }
-//   return await response.json();
-// }
-
-// export async function savePoints(
-//   points: any[],
-//   dates: string[],
-//   metadata: any,
-//   duration: number,
-//   export_path: string
-// ) {
-//   console.log("metadata ==> ", metadata);
-  
-//   let metadataWithTuple = metadata;
-//   if(metadata.origin_px[0]){
-//     metadataWithTuple = {
-//       ...metadata,
-//       origin_px: `(${metadata.origin_px[0]}, ${metadata.origin_px[1]})`,
-//       origin_value: metadata.origin_value ?? "(0, 0)",
-//       x_max_px: `(${metadata.x_max_px[0]}, ${metadata.x_max_px[1]})`,
-//       y_max_px: `(${metadata.y_max_px[0]}, ${metadata.y_max_px[1]})`,
-//     };
-//   }
-
-//   console.log("metadataWithTuple ==> ", metadataWithTuple);
-
-//   const payload = {
-//     points,
-//     dates,
-//     metadata: metadataWithTuple,
-//     duration,
-//     export_path,
-//   };
-
-//   const response = await fetch("http://localhost:6003/api/cq/save_points", {
-//     method: "POST",
-//     headers: { "Content-Type": "application/json" },
-//     body: JSON.stringify(payload),
-//   });
-
-//   if (!response.ok) throw new Error("Erreur lors de la sauvegarde");
-//   return response; // tu récupéreras du JSON {status, file_path}
-// }
-
-// export async function updateMetadata(metadata: any) {
-//   const response = await fetch("http://localhost:6003/api/cq/update_metadata", {
-//     method: "POST",
-//     headers: { "Content-Type": "application/json" },
-//     body: JSON.stringify(metadata),
-//   });
-//   return await response.json();
-// }
-
-// export async function exportCsv(
-//   points: any[],
-//   interval: number,
-//   base_date: string
-// ) {
-//   const response = await fetch("http://localhost:6003/api/cq/export", {
-//     method: "POST",
-//     headers: { "Content-Type": "application/json" },
-//     body: JSON.stringify({ points, interval, base_date }),
-//   });
-
-//   if (!response.ok) throw new Error("Erreur export CSV");
-//   return response; // CSV à télécharger
-// }
-
-// export async function saveCaptures(csvContent: string, captures: Array<{ imageData: string; filename: string }>, outputPath: string) {
-//     const formData = new FormData();
-//     // Use the lot name for the CSV filename, following the pattern
-//     const csvFilename = captures[0]!.filename.replace(/_MC_\d{3}\.jpg$/, '_MM_MC.csv');
-//     formData.append('csv_report', new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }), csvFilename);
-    
-//     for (const capture of captures) {
-//         const response = await fetch(capture.imageData);
-//         const blob = await response.blob();
-//         formData.append('images', blob, capture.filename);
-//     }
-
-//     formData.append('outputPath', outputPath);
-
-//     const response = await fetch("http://localhost:6003/api/cq/save_captures", {
-//         method: "POST",
-//         body: formData,
-//     });
-
-//     if (!response.ok) {
-//         const errorText = await response.text();
-//         throw new Error(`Erreur lors de la sauvegarde des captures: ${errorText}`);
-//     }
-//     return await response.json();
-// }
-
 // src/services/CQService.ts
 
-import authService from './AuthService';
+import env from "../config/env";
+import authService from "./AuthService";
 
-const API_BASE_URL = 'http://localhost:6003/api/cq';
+const API_BASE_URL = env.BASE_URL + "/api/cq";
 
 class CQService {
   /**
    * Méthode générique pour envoyer des requêtes POST avec token JWT
    */
-  private async post(endpoint: string, body: object | FormData, isFormData: boolean = false) {
+  private async post(
+    endpoint: string,
+    body: object | FormData,
+    isFormData: boolean = false
+  ) {
     const token = authService.getToken();
     if (!token) {
       throw new Error("Utilisateur non authentifié");
@@ -145,12 +22,12 @@ class CQService {
     const headers: HeadersInit = isFormData
       ? { Authorization: `Bearer ${token}` }
       : {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         };
 
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      method: 'POST',
+      method: "POST",
       headers,
       body: isFormData ? (body as FormData) : JSON.stringify(body),
     });
@@ -173,20 +50,27 @@ class CQService {
   async parseCsvFile(csvFile: File, imagePath: string) {
     const formData = new FormData();
     formData.append("csvfile", csvFile);
-    return this.post(`/parse_csv?image_path=${encodeURIComponent(imagePath)}`, formData, true);
+    return this.post(
+      `/parse_csv?image_path=${encodeURIComponent(imagePath)}`,
+      formData,
+      true
+    );
   }
 
   /**
    * Récupère un fichier via son chemin
    */
-  async getFileFromPath(path: string): Promise<{ name: string; content: string }> {
-    return this.post('/get_file_from_path', { path });
+  async getFileFromPath(
+    path: string
+  ): Promise<{ name: string; content: string }> {
+    return this.post("/get_file_from_path", { path });
   }
 
   /**
    * Sauvegarde les points analysés avec leurs métadonnées et durée
    */
   async savePoints(
+    idLot: number,
     points: any[],
     dates: string[],
     metadata: any,
@@ -197,17 +81,25 @@ class CQService {
 
     // Conversion des tuples [x, y] en chaîne "(x, y)" si nécessaire
     let metadataWithTuple = metadata;
-    if (metadata.origin_px?.[0]) {
+
+    // Vérifier si origin_px est un tableau (array) et non une string
+    if (Array.isArray(metadata.origin_px) && metadata.origin_px.length >= 2) {
+      console.log("metadata.origin_px est un array ==> ", metadata.origin_px);
       metadataWithTuple = {
         ...metadata,
         origin_px: `(${metadata.origin_px[0]}, ${metadata.origin_px[1]})`,
-        origin_value: metadata.origin_value ?? "(0, 0)",
-        x_max_px: `(${metadata.x_max_px[0]}, ${metadata.x_max_px[1]})`,
-        y_max_px: `(${metadata.y_max_px[0]}, ${metadata.y_max_px[1]})`,
+        x_max_px: Array.isArray(metadata.x_max_px)
+          ? `(${metadata.x_max_px[0]}, ${metadata.x_max_px[1]})`
+          : metadata.x_max_px,
+        y_max_px: Array.isArray(metadata.y_max_px)
+          ? `(${metadata.y_max_px[0]}, ${metadata.y_max_px[1]})`
+          : metadata.y_max_px,
       };
     }
 
+    console.log("metadataWithTuple ==> ", metadataWithTuple);
     const payload = {
+      idLot,
       points,
       dates,
       metadata: metadataWithTuple,
@@ -215,21 +107,113 @@ class CQService {
       export_path,
     };
 
-    return this.post('/save_points', payload);
+    return this.post("/save_points", payload);
+  }
+
+  /**
+   * Sauvegarde les points analysés avec leurs métadonnées et durée
+   */
+  async savePointsReprise(
+    idLot: number,
+    points: any[],
+    dates: string[],
+    metadata: any,
+    duration: number,
+    export_path: string
+  ) {
+    console.log("metadata ==> ", metadata);
+
+    // Conversion des tuples [x, y] en chaîne "(x, y)" si nécessaire
+    let metadataWithTuple = metadata;
+
+    // Vérifier si origin_px est un tableau (array) et non une string
+    if (Array.isArray(metadata.origin_px) && metadata.origin_px.length >= 2) {
+      console.log("metadata.origin_px est un array ==> ", metadata.origin_px);
+      metadataWithTuple = {
+        ...metadata,
+        origin_px: `(${metadata.origin_px[0]}, ${metadata.origin_px[1]})`,
+        x_max_px: Array.isArray(metadata.x_max_px)
+          ? `(${metadata.x_max_px[0]}, ${metadata.x_max_px[1]})`
+          : metadata.x_max_px,
+        y_max_px: Array.isArray(metadata.y_max_px)
+          ? `(${metadata.y_max_px[0]}, ${metadata.y_max_px[1]})`
+          : metadata.y_max_px,
+      };
+    }
+
+    console.log("metadataWithTuple ==> ", metadataWithTuple);
+    const payload = {
+      idLot,
+      points,
+      dates,
+      metadata: metadataWithTuple,
+      duration,
+      export_path,
+    };
+
+    return this.post("/save_points_reprise", payload);
+  }
+
+  /**
+   * Sauvegarde les points analysés avec leurs métadonnées et durée
+   */
+  async savePointsFinal(
+    idLot: number,
+    points: any[],
+    dates: string[],
+    metadata: any,
+    duration: number,
+    export_path: string
+  ) {
+    console.log("metadata ==> ", metadata);
+
+    // Conversion des tuples [x, y] en chaîne "(x, y)" si nécessaire
+    let metadataWithTuple = metadata;
+
+    // Vérifier si origin_px est un tableau (array) et non une string
+    if (Array.isArray(metadata.origin_px) && metadata.origin_px.length >= 2) {
+      console.log("metadata.origin_px est un array ==> ", metadata.origin_px);
+      metadataWithTuple = {
+        ...metadata,
+        origin_px: `(${metadata.origin_px[0]}, ${metadata.origin_px[1]})`,
+        x_max_px: Array.isArray(metadata.x_max_px)
+          ? `(${metadata.x_max_px[0]}, ${metadata.x_max_px[1]})`
+          : metadata.x_max_px,
+        y_max_px: Array.isArray(metadata.y_max_px)
+          ? `(${metadata.y_max_px[0]}, ${metadata.y_max_px[1]})`
+          : metadata.y_max_px,
+      };
+    }
+
+    console.log("metadataWithTuple ==> ", metadataWithTuple);
+    const payload = {
+      idLot,
+      points,
+      dates,
+      metadata: metadataWithTuple,
+      duration,
+      export_path,
+    };
+
+    return this.post("/save_points_final", payload);
   }
 
   /**
    * Met à jour les métadonnées dans le fichier JSON
    */
   async updateMetadata(metadata: any) {
-    return this.post('/update_metadata', metadata);
+    return this.post("/update_metadata", metadata);
   }
 
   /**
    * Exporte les points sous format CSV
    */
   async exportCsv(points: any[], interval: number, base_date: string) {
-    const response = await this.post('/export', { points, interval, base_date });
+    const response = await this.post("/export", {
+      points,
+      interval,
+      base_date,
+    });
     return response; // CSV téléchargeable côté serveur
   }
 
@@ -238,25 +222,140 @@ class CQService {
    */
   async saveCaptures(
     csvContent: string,
-    captures: Array<{ imageData: string; filename: string }>,
-    outputPath: string
+    captures: Array<{
+      imageData: string;
+      filename: string;
+      type: string;
+      nature: string;
+    }>,
+    outputPath: string,
+    idLot: number,
+    imageCorrespondant: string
   ) {
+    console.log("csvContent", csvContent);
+    console.log("captures", captures);
+    console.log("outputPath", outputPath);
+    console.log("idLot", idLot);
+    console.log("imageCorrespondant", imageCorrespondant);
+
     const formData = new FormData();
 
     // Utilise le nom du lot pour le rapport CSV
-    const csvFilename = captures[0]!.filename.replace(/_MC_\d{3}\.jpg$/, '_MM_MC.csv');
-    formData.append('csv_report', new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }), csvFilename);
+    const csvFilename = captures[0]!.filename.replace(
+      /_(MC|AN)_\d{3}\.jpg$/,
+      "_MM_MC.csv"
+    );
+    formData.append(
+      "csv_report",
+      new Blob([csvContent], { type: "text/csv;charset=utf-8;" }),
+      csvFilename
+    );
 
-    // Ajoute toutes les images
+    // Ajoute toutes les images AVEC leurs métadonnées
     for (const capture of captures) {
       const response = await fetch(capture.imageData);
       const blob = await response.blob();
-      formData.append('images', blob, capture.filename);
+      formData.append("images", blob, capture.filename);
+
+      // NOUVEAU : Ajouter les métadonnées de chaque image
+      formData.append("image_types", capture.type);
+      formData.append("image_natures", capture.nature);
+      formData.append("image_filenames", capture.filename);
     }
 
-    formData.append('outputPath', outputPath);
+    // AJOUT DES CHAMPS
+    formData.append("outputPath", outputPath);
+    formData.append("id_lot", idLot.toString());
+    formData.append("image_correspondant", imageCorrespondant);
 
-    return this.post('/save_captures', formData, true);
+    // Debug: afficher tous les champs FormData
+    console.log("=== FormData contents ===");
+    for (let [key, value] of formData.entries()) {
+      console.log(key, value);
+    }
+
+    return this.post("/save_captures", formData, true);
+  }
+  /**
+   * Récupère les captures d'écran à valider pour un lot donné en CQ_ISO
+   */
+  async getCapturesForReview(idLot: number) {
+    const payload = { idLot };
+    return this.post(`/images/${idLot}`, payload);
+  }
+
+  /**
+   * Archive une capture d'écran existante.
+   */
+  async archiveCapture(idLot: number, captureId: number) {
+    return this.post(`/images/archive`, { idLot, id: captureId });
+  }
+  
+  /**
+   * Met à jour le statut d'une capture (validée ou rejetée)
+   */
+  async updateCaptureStatus(
+    id: number,
+    idLot: number,
+    filename: string,
+    status: "valid" | "rejected",
+    rejectionReason?: string
+  ) {
+    const payload = {
+      id,
+      idLot,
+      filename,
+      status,
+      rejectionReason,
+    };
+
+    console.log("Payload pour updateCaptureStatus:", payload);
+    return this.post(`/images/update_status`, payload);
+  }
+
+  /**
+   * Finalise la revue des captures pour un lot donné.
+   * Le backend doit vérifier que toutes les captures sont validées avant de procéder.
+   */
+  async finalizeCaptureReview(
+    idLot: number,
+    source_path: string,
+    target_path: string
+  ) {
+    const payload = { idLot, source_path, target_path };
+    return this.post(`/images/finalize`, payload);
+  }
+
+  /**
+   * Récupère les points échantillonnés (échantillons) d’un lot donné
+   */
+  async getSampledPoints(idLot: number) {
+    const token = authService.getToken();
+    if (!token) {
+      throw new Error("Utilisateur non authentifié");
+    }
+
+    const headers: HeadersInit = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    };
+
+    const response = await fetch(`${API_BASE_URL}/echantillons/${idLot}`, {
+      method: "GET",
+      headers,
+    });
+
+    // Vérifie le statut HTTP
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({
+        message: `La requête a échoué avec le statut ${response.status}`,
+      }));
+      throw new Error(
+        errorData.message || "Échec de la récupération des échantillons"
+      );
+    }
+
+    return await response.json();
   }
 }
 

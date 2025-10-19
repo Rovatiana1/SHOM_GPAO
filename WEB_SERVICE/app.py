@@ -1,20 +1,30 @@
+from dotenv import load_dotenv
+import os
+
+# ⚠️ Charger .env avant tout autre import
+load_dotenv()
+
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 from flask_compress import Compress
-from dotenv import load_dotenv
 import traceback
 import secrets
-import os
-import WEB_SERVICE.seed_data
 
-# --- Chargement des modules locaux ---
+# --- Import local après .env ---
 from WEB_SERVICE.config import postgresqlConfig
 from WEB_SERVICE.db import db
-
-# Import et enregistrement des routes
+from WEB_SERVICE.create_fake_users import create_fake_users
 from WEB_SERVICE.routes.auth_routes import auth_bp
 from WEB_SERVICE.routes.cq_routes import cq_bp
 from WEB_SERVICE.routes.gpao_routes import gpao_bp
+from WEB_SERVICE.routes.user_routes import user_bp
+from WEB_SERVICE.routes.dossier_routes import dossier_bp
+from WEB_SERVICE.routes.etape_routes import etape_bp
+from WEB_SERVICE.routes.etat_routes import etat_bp
+from WEB_SERVICE.routes.ldt_routes import ldt_bp
+from WEB_SERVICE.routes.lot_client_routes import lot_client_bp
+from WEB_SERVICE.routes.lot_routes import lot_bp
+
 
 # ---------------------------------------------------------
 # Chargement de l'environnement et des variables associées
@@ -81,6 +91,13 @@ with app.app_context():
 app.register_blueprint(auth_bp, url_prefix="/api/auth")
 app.register_blueprint(cq_bp, url_prefix="/api/cq")
 app.register_blueprint(gpao_bp, url_prefix="/api/gpao")
+app.register_blueprint(user_bp, url_prefix="/api/users")
+app.register_blueprint(dossier_bp, url_prefix="/api/dossiers")
+app.register_blueprint(etape_bp, url_prefix="/api/etapes")
+app.register_blueprint(etat_bp, url_prefix="/api/etats")
+app.register_blueprint(ldt_bp, url_prefix="/api/ldts")
+app.register_blueprint(lot_client_bp, url_prefix="/api/lot-clients")
+app.register_blueprint(lot_bp, url_prefix="/api/lots")
 
 # ---------------------------------------------------------
 # Routes pour servir l'application React
@@ -121,6 +138,11 @@ def add_header(response):
 # Lancement de l'application
 # ---------------------------------------------------------
 if __name__ == '__main__':
+    # Optionnel : créer les utilisateurs fake à chaque démarrage dev
+    with app.app_context():
+        created, skipped = create_fake_users(app)
+        print(f"Utilisateurs créés : {len(created)}, ignorés : {len(skipped)}")
+
     app.run(
         host='0.0.0.0',
         port=config["PORT"],

@@ -1,10 +1,11 @@
 
+
 import React from 'react';
 import { PlayCircle, PauseCircle } from 'lucide-react';
 
 interface PausedOverlayProps {
   onResume: () => void;
-  reason: string | null;
+  reason: { id: number, label: string } | null;
 }
 
 const PausedOverlay: React.FC<PausedOverlayProps> = ({ onResume, reason }) => {
@@ -18,7 +19,7 @@ const PausedOverlay: React.FC<PausedOverlayProps> = ({ onResume, reason }) => {
         <h1 className="text-4xl font-bold mb-3">Application en Pause</h1>
         {reason && (
           <p className="text-xl text-yellow-200 mb-2">
-            Motif : <span className="font-semibold">{reason}</span>
+            Motif : <span className="font-semibold">{reason.label}</span>
           </p>
         )}
         <p className="text-lg text-gray-300 mb-8 max-w-md mx-auto">Cliquez sur le bouton ci-dessous pour reprendre votre travail.</p>

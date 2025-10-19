@@ -3,14 +3,17 @@ import Toolbar from './components/Toolbar';
 import CanvasComponent from './components/CanvasComponent';
 import ChartModal from './components/ChartModal';
 import CaptureModal from './components/CaptureModal';
+import CaptureDetailsModal from './components/CaptureDetailsModal';
+import DurationModal from './components/DurationModal';
+import PreviewCanvasComponent from './components/PreviewCanvasComponent';
 import { DateInfo, DisplayMode, Metadata, Point, ReperePoint, Capture } from '../../../types/Image';
-// FIX: Import `savePoints` to be used in the `handleExport` function.
-// import { parseCsvFile, getFileFromPath, savePoints, saveCaptures } from '../../../services/CQService';
 import CQService from '../../../services/CQService';
+import GpaoService from '../../../services/GpaoService';
 import { useAppContext } from "../../../context/AppContext";
 import { useSelector } from 'react-redux';
 import { RootState } from '../../../store/store';
 import ToastNotification, { ToastType } from '../../../utils/components/ToastNotification';
+import { generatePreviewData, InterpolatedRow } from '../../../services/InterpolationService';
 
 const CQ: React.FC = () => {
     const [points, setPoints] = useState<Point[]>([]);
@@ -18,6 +21,7 @@ const CQ: React.FC = () => {
     const [dates, setDates] = useState<string[]>([]);
     const [originalDates, setOriginalDates] = useState<string[]>([]);
     const [uniqueDates, setUniqueDates] = useState<DateInfo[]>([]);
+    const [selectedPointIndices, setSelectedPointIndices] = useState<number[]>([]);
 
     const [metadata, setMetadata] = useState<Metadata | null>(null);
     const [originalMetadata, setOriginalMetadata] = useState<Metadata | null>(null);
@@ -37,6 +41,7 @@ const CQ: React.FC = () => {
 
     const { setCollapsed } = useAppContext();
     const { currentLot, paths, loading: processLoading } = useSelector((state: RootState) => state.process);
+    const { user } = useSelector((state: RootState) => state.auth);
     const processedLotId = useRef<number | null>(null);
     const [imageLoading, setImageLoading] = useState(false);
 
@@ -46,10 +51,22 @@ const CQ: React.FC = () => {
     const [isCaptureMode, setIsCaptureMode] = useState(false);
     const [captures, setCaptures] = useState<Capture[]>([]);
     const [isCaptureModalOpen, setIsCaptureModalOpen] = useState(false);
+    const [isCaptureDetailsModalOpen, setIsCaptureDetailsModalOpen] = useState(false);
     const [capturedImage, setCapturedImage] = useState<string | null>(null);
-    const [nextCaptureInfo, setNextCaptureInfo] = useState<{ filename: string; correspondante: string } | null>(null);
+    const [nextCaptureInfo, setNextCaptureInfo] = useState<{ baseName: string; correspondante: string; } | null>(null);
     const [isExportingCaptures, setIsExportingCaptures] = useState(false);
     const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
+
+    // Modal states
+    const [isDurationModalOpen, setDurationModalOpen] = useState(false);
+    const [isPreviewDurationModalOpen, setPreviewDurationModalOpen] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
+    
+    // Preview Mode State
+    const [isPreviewMode, setIsPreviewMode] = useState(false);
+    const [previewData, setPreviewData] = useState<InterpolatedRow[] | null>(null);
+    const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+
     const resetState = useCallback(() => {
         setPoints([]);
         setOriginalPoints([]);
@@ -69,14 +86,46 @@ const CQ: React.FC = () => {
         setIsSettingOrigin(false);
         setCaptures([]);
         setIsCaptureModalOpen(false);
+        setIsCaptureDetailsModalOpen(false);
         setCapturedImage(null);
         setIsCaptureMode(false);
+        setPreviewData(null);
+        setIsPreviewMode(false);
+        setSelectedPointIndices([]);
     }, []);
 
     const processParsedData = useCallback((data: { metadata: Metadata; points: [number, number][]; dates: string[]; image: string }) => {
         const { metadata, points, dates, image } = data;
 
-        // Helper to sanitize coordinate data from strings like "(x, y)" to [x, y]
+        const endInterFileAndStartProdLdt = async () => {
+            if (currentLot && user) {
+                try {
+                    const endLdtParams = {
+                        _idDossier: currentLot?.idDossier,
+                        _idEtape: currentLot?.idEtape!,
+                        _idPers: parseInt(user.userId, 10),
+                        _idLotClient: currentLot?.idLotClient,
+                        _idLot: currentLot?.idLot,
+                        _idTypeLdt: 39,
+                        _qte: 1,
+                    };
+                    await GpaoService.endLdt(endLdtParams);
+                    const startLdtParams = {
+                        _idDossier: currentLot?.idDossier,
+                        _idEtape: currentLot?.idEtape!,
+                        _idPers: parseInt(user.userId, 10),
+                        _idLotClient: currentLot?.idLotClient,
+                        _idLot: currentLot?.idLot,
+                        _idTypeLdt: 0,
+                        _qte: 1,
+                    };
+                    await GpaoService.startNewLdt(startLdtParams);
+                } catch (err) {
+                    console.error("Failed to end inter-file LDT", err);
+                }
+            }
+        };
+
         const parseCoords = (coord: any): ReperePoint => {
             if (Array.isArray(coord) && coord.length === 2 && typeof coord[0] === 'number' && typeof coord[1] === 'number') {
                 return coord as ReperePoint;
@@ -86,7 +135,6 @@ const CQ: React.FC = () => {
             return [parseFloat(match[1]!), parseFloat(match[2]!)];
         };
 
-        // Sanitize metadata to ensure coordinates are always arrays of numbers
         const sanitizedMetadata: Metadata = {
             ...metadata,
             origin_px: parseCoords(metadata.origin_px),
@@ -129,30 +177,68 @@ const CQ: React.FC = () => {
             );
 
             setImageLoading(false);
+            endInterFileAndStartProdLdt();
         };
         img.onerror = () => {
             setError("Erreur lors du chargement de l’image.");
             setImageLoading(false);
+            endInterFileAndStartProdLdt();
         };
         img.src = `data:image/png;base64,${image}`;
-    }, [setCollapsed]);
+    }, [setCollapsed, user, currentLot]);
 
     const handleFileChange = useCallback(async (file: File) => {
         setError(null);
+
+        if (currentLot && user) {
+            try {
+                const startLdtParams = {
+                    _idDossier: currentLot?.idDossier,
+                    _idEtape: currentLot?.idEtape!,
+                    _idPers: parseInt(user.userId, 10),
+                    _idLotClient: currentLot?.idLotClient,
+                    _idLot: currentLot?.idLot,
+                    _idTypeLdt: 39, // Inter-fichier
+                };
+                await GpaoService.startNewLdt(startLdtParams);
+            } catch (err) {
+                const msg = `Erreur au démarrage du chrono inter-fichier: ${err instanceof Error ? err.message : String(err)}`;
+                console.error(msg);
+                setToast({ message: msg, type: 'error' });
+            }
+        }
+
         setImageLoading(true);
 
         console.log('Processing file:', file.name, file, currentLot);
         try {
-            const data = await CQService.parseCsvFile(file, currentLot.paths.IMAGE_PATH);
+            const data = await CQService.parseCsvFile(file, currentLot?.paths.IMAGE_PATH);
             processParsedData(data);
         } catch (err) {
             console.error(err);
             setError("Impossible de parser le fichier CSV.");
             setImageLoading(false);
+
+            if (currentLot && user) {
+                try {
+                    const endLdtParams = {
+                        _idDossier: currentLot?.idDossier,
+                        _idEtape: currentLot?.idEtape!,
+                        _idPers: parseInt(user.userId, 10),
+                        _idLotClient: currentLot?.idLotClient,
+                        _idLot: currentLot?.idLot,
+                        _idTypeLdt: 39,
+                        _qte: 1,
+                    };
+                    await GpaoService.endLdt(endLdtParams);
+                } catch (endErr) {
+                    console.error("Failed to end inter-file LDT after CSV parse error", endErr);
+                }
+            }
         } finally {
             isAutoLoading.current = false;
         }
-    }, [processParsedData, currentLot]);
+    }, [processParsedData, currentLot, user]);
 
     const handleManualFileSelect = (file: File | null) => {
         setAutoLoadedFilename(null);
@@ -161,9 +247,9 @@ const CQ: React.FC = () => {
     };
 
     useEffect(() => {
-        if (currentLot && paths && currentLot.idLot !== processedLotId.current) {
+        if (currentLot && paths && currentLot?.idLot !== processedLotId.current) {
             resetState();
-            processedLotId.current = currentLot.idLot;
+            processedLotId.current = currentLot?.idLot;
             isAutoLoading.current = true;
 
             const autoLoadAndProcess = async (path: string) => {
@@ -181,7 +267,7 @@ const CQ: React.FC = () => {
                 }
             };
 
-            autoLoadAndProcess(currentLot.paths.IN_CQ); // on force ici mais normalement ca doit etre path.in => ca vient de processSlice
+            autoLoadAndProcess(currentLot?.paths.IN_CQ); // on force ici mais normalement ca doit etre path.in => ca vient de processSlice
         }
 
         if (!currentLot) {
@@ -200,25 +286,71 @@ const CQ: React.FC = () => {
         setPoints(JSON.parse(JSON.stringify(originalPoints)));
         setDates(JSON.parse(JSON.stringify(originalDates)));
         setMetadata(JSON.parse(JSON.stringify(originalMetadata)));
+        setSelectedPointIndices([]);
     }, [originalPoints, originalDates, originalMetadata]);
 
-    const handleExport = async (durationMinutes: number) => {
+    const handleOpenExportModal = () => {
         if (!metadata || points.length === 0) {
             setToast({ message: `No data to export.`, type: 'error' });
             return;
         }
+        setDurationModalOpen(true);
+    };
+
+    const handleConfirmExport = async (durationMinutes: number) => {
+        setDurationModalOpen(false);
+        if (!metadata || points.length === 0 || !currentLot || !currentLot?.paths) {
+            setToast({ message: `Données de lot manquantes pour l'export.`, type: 'error' });
+            return;
+        }
+        setIsExporting(true);
         try {
-            const response = await CQService.savePoints(points, dates, metadata, durationMinutes, currentLot.paths.OUT_CQ);
-            const result = await response.json();
-            if (result.status === "success") {
-                setToast({ message: `Fichier exporté avec succès : ${result.file_path}`, type: 'success' });
+            const response = await CQService.savePoints(currentLot?.lotCQ.idLot, points, dates, metadata, durationMinutes, currentLot?.paths.OUT_CQ);
+            if (response.status === "success") {
+                setToast({ message: `Fichier exporté avec succès !!`, type: 'success' });
             } else {
-                setToast({ message: "Erreur lors de l’export CSV", type: 'error' });
+                setToast({ message: `Erreur lors de l’export CSV: ${response.message || 'Erreur inconnue'}`, type: 'error' });
             }
         } catch (e) {
             console.error(e);
-            setToast({ message: "Erreur lors de l’export CSV", type: 'error' });
+            const errorMessage = e instanceof Error ? e.message : "Erreur lors de l’export CSV";
+            setToast({ message: errorMessage, type: 'error' });
+        } finally {
+            setIsExporting(false);
         }
+    };
+
+    const handleEnterPreviewMode = () => {
+        if (!metadata || points.length === 0) {
+            setToast({ message: "Aucune donnée à prévisualiser.", type: 'info' });
+            return;
+        }
+        setPreviewDurationModalOpen(true);
+    };
+    
+    const handleConfirmPreview = (durationMinutes: number) => {
+        setPreviewDurationModalOpen(false);
+        if (!metadata) return;
+        
+        setIsPreviewLoading(true);
+
+        setTimeout(() => {
+            try {
+                const data = generatePreviewData(points, dates, durationMinutes, metadata);
+                setPreviewData(data);
+                setIsPreviewMode(true);
+            } catch(e) {
+                const err = e as Error;
+                setToast({ message: `Erreur de prévisualisation: ${err.message}`, type: 'error' });
+            } finally {
+                setIsPreviewLoading(false);
+            }
+        }, 10);
+    };
+
+    const handleExitPreviewMode = () => {
+        setIsPreviewMode(false);
+        setPreviewData(null);
     };
 
     const addPoint = useCallback((point: { x: number; y: number }) => {
@@ -234,7 +366,6 @@ const CQ: React.FC = () => {
 
     const startAddingPoint = () => {
         if (!selectedDate) {
-            alert("Veuillez sélectionner une date avant d'ajouter un repère.");
             setToast({ message: "Veuillez sélectionner une date avant d'ajouter un repère.", type: 'info' });
             return;
         }
@@ -263,7 +394,6 @@ const CQ: React.FC = () => {
     const saveNewOrigin = (newRepere: { origin: Point; xAxis: Point; yAxis: Point }) => {
         if (!originalMetadata || !originalPoints || !metadata) return;
 
-        // 1. Define old basis from original metadata (now guaranteed to be [number, number])
         const O_old = originalMetadata.origin_px;
         const X_max_old = originalMetadata.x_max_px;
         const Y_max_old = originalMetadata.y_max_px;
@@ -271,7 +401,6 @@ const CQ: React.FC = () => {
         const VX_old = [X_max_old[0] - O_old[0], X_max_old[1] - O_old[1]];
         const VY_old = [Y_max_old[0] - O_old[0], Y_max_old[1] - O_old[1]];
 
-        // 2. Define new basis from user input
         const O_new = [newRepere.origin.x, newRepere.origin.y];
         const X_max_new = [newRepere.xAxis.x, newRepere.xAxis.y];
         const Y_max_new = [newRepere.yAxis.x, newRepere.yAxis.y];
@@ -279,7 +408,6 @@ const CQ: React.FC = () => {
         const VX_new = [X_max_new[0]! - O_new[0]!, X_max_new[1]! - O_new[1]!];
         const VY_new = [Y_max_new[0]! - O_new[0]!, Y_max_new[1]! - O_new[1]!];
 
-        // 3. Calculate inverse of the old transformation matrix determinant
         const det_old = VX_old[0]! * VY_old[1]! - VY_old[0]! * VX_old[1]!;
         if (Math.abs(det_old) < 1e-6) {
             setError("L'ancien repère n'est pas valide (axes colinéaires).");
@@ -287,15 +415,12 @@ const CQ: React.FC = () => {
             return;
         }
 
-        // 4. Transform each original point
         const newPoints = originalPoints.map(p_orig => {
             const p_vec = [p_orig.x - O_old[0], p_orig.y - O_old[1]];
 
-            // Solve for logical coordinates (u, v) where P-O = u*VX + v*VY
             const u = (p_vec[0]! * VY_old[1]! - p_vec[1]! * VY_old[0]!) / det_old;
             const v = (p_vec[1]! * VX_old[0]! - p_vec[0]! * VX_old[1]!) / det_old;
 
-            // Apply new transformation
             const newX = O_new[0]! + u * VX_new[0]! + v * VY_new[0]!;
             const newY = O_new[1]! + u * VX_new[1]! + v * VY_new[1]!;
 
@@ -304,7 +429,6 @@ const CQ: React.FC = () => {
 
         setPoints(newPoints);
 
-        // 5. Update metadata
         const newMetadata: Metadata = JSON.parse(JSON.stringify(metadata));
         newMetadata.origin_px = [newRepere.origin.x, newRepere.origin.y];
         newMetadata.x_max_px = [newRepere.xAxis.x, newRepere.xAxis.y];
@@ -314,24 +438,64 @@ const CQ: React.FC = () => {
         setIsSettingOrigin(false);
     };
 
+    const handleDeleteSelected = () => {
+        if (selectedPointIndices.length === 0) return;
+        const indicesToDelete = new Set(selectedPointIndices);
+        setPoints(prev => prev.filter((_, i) => !indicesToDelete.has(i)));
+        setDates(prev => prev.filter((_, i) => !indicesToDelete.has(i)));
+        setSelectedPointIndices([]);
+    };
+
     const handleStartCapture = () => {
         setIsCaptureMode(true);
     };
 
+    const handleViewCaptures = () => {
+        setIsCaptureDetailsModalOpen(true);
+    };
+
+
+    const handleDeleteCapture = (indexToDelete: number) => {
+        setCaptures(prevCaptures => {
+            const updatedCaptures = prevCaptures.filter((_, index) => index !== indexToDelete);
+            const mcCounter = { count: 1 };
+            const anCounter = { count: 1 };
+
+            return updatedCaptures.map(capture => {
+                const parts = capture.filename.replace(/\.jpg$/, '').split('_');
+                if (parts.length < 3) return capture; 
+
+                const baseName = parts.slice(0, -2).join('_');
+                let newFilename = '';
+
+                if (capture.type === 'Metadonnée contextuelle') {
+                    const newIndex = (mcCounter.count++).toString().padStart(3, '0');
+                    newFilename = `${baseName}_MC_${newIndex}.jpg`;
+                } else { // Anomalie
+                    const newIndex = (anCounter.count++).toString().padStart(3, '0');
+                    newFilename = `${baseName}_AN_${newIndex}.jpg`;
+                }
+                return { ...capture, filename: newFilename };
+            });
+
+        });
+    };
+
     const handleCaptureComplete = (dataUrl: string) => {
-        setIsCaptureMode(false); // Exit capture mode
+        setIsCaptureMode(false); 
 
         if (!metadata || !currentLot) {
             setError("Impossible de sauvegarder la capture : métadonnées ou informations sur le lot manquantes.");
             return;
         }
 
-        const correspondante = currentLot.libelle;
+        const correspondante = currentLot?.libelle;
         const baseName = correspondante.replace(/\.tif$/, '');
-        const newIndex = (captures.length + 1).toString().padStart(3, '0');
-        const filename = `${baseName}_MC_${newIndex}.jpg`;
 
-        setNextCaptureInfo({ filename, correspondante });
+        setNextCaptureInfo({
+            baseName: baseName,
+            correspondante: correspondante
+        });
         setCapturedImage(dataUrl);
         setIsCaptureModalOpen(true);
     };
@@ -341,15 +505,20 @@ const CQ: React.FC = () => {
     };
 
     const handleSaveCapture = (type: string, nature: string) => {
-        if (!capturedImage || !metadata) return;
-        const baseName = metadata.Img_path.replace('.tif', '');
-        const newIndex = (captures.length + 1).toString().padStart(3, '0');
-        const filename = `${baseName}_MC_${newIndex}.jpg`;
+        if (!capturedImage || !metadata || !nextCaptureInfo) return;
+
+        const { baseName } = nextCaptureInfo;
+        const countForType = captures.filter(c => c.type === type).length;
+        const newIndexStr = (countForType + 1).toString().padStart(3, '0');
+
+        const suffix = type === "Anomalie" ? "AN" : "MC";
+        const filename = `${baseName}_${suffix}_${newIndexStr}.jpg`;
+
         setCaptures(prev => [...prev, { imageData: capturedImage, type, nature, filename }]);
         setIsCaptureModalOpen(false);
         setCapturedImage(null);
+        setNextCaptureInfo(null);
     };
-
     const handleCancelSavedCapture = () => {
         setIsCaptureModalOpen(false);
         setCapturedImage(null);
@@ -365,14 +534,20 @@ const CQ: React.FC = () => {
         setIsExportingCaptures(true);
         setToast(null);
 
-        const mainImageName = metadata.Img_path;
+        const mainImageName = currentLot?.libelle;
         let csvContent = "image correspondante;nom de l'image;type;nature\n";
         captures.forEach(capture => {
             csvContent += `${mainImageName};${capture.filename};"${capture.type}";"${capture.nature}"\n`;
         });
 
         try {
-            const response = await CQService.saveCaptures(csvContent, captures, paths.out);
+            const response = await CQService.saveCaptures(
+                csvContent,
+                captures,
+                paths.out,
+                currentLot?.idLot,
+                mainImageName
+            );
             setToast({ message: `Captures exportées avec succès : ${response.message}`, type: 'success' });
             setCaptures([]);
         } catch (e) {
@@ -384,7 +559,6 @@ const CQ: React.FC = () => {
         }
     };
 
-
     return (
         <div className="flex h-full w-full font-sans">
             {toast && <ToastNotification message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
@@ -395,7 +569,7 @@ const CQ: React.FC = () => {
                 setSelectedDate={setSelectedDate}
                 displayMode={displayMode}
                 setDisplayMode={setDisplayMode}
-                onExport={handleExport}
+                onExport={handleOpenExportModal}
                 onReset={handleReset}
                 onShowChart={() => setChartVisible(true)}
                 metadata={metadata}
@@ -411,12 +585,20 @@ const CQ: React.FC = () => {
                 csvFile={csvFile}
                 setCsvFile={handleManualFileSelect}
                 onStartCapture={handleStartCapture}
+                onViewCaptures={handleViewCaptures}
                 onExportCaptures={handleExportCaptures}
                 captureCount={captures.length}
+                onPreview={handleEnterPreviewMode}
                 isExportingCaptures={isExportingCaptures}
+                isExporting={isExporting}
+                isPreviewMode={isPreviewMode}
+                onExitPreviewMode={handleExitPreviewMode}
+                isPreviewLoading={isPreviewLoading}
+                selectedPointIndices={selectedPointIndices}
+                onDeleteSelected={handleDeleteSelected}
             />
             <main className="relative flex-1 flex items-center justify-center bg-gray-200 p-4 overflow-hidden h-[90vh]">
-                {(imageLoading) && (
+                {(imageLoading || isPreviewLoading) && (
                     <div className="absolute inset-0 bg-black bg-opacity-70 backdrop-blur-md flex items-center justify-center z-40">
                         <div className="flex flex-col items-center">
                             <svg
@@ -439,11 +621,21 @@ const CQ: React.FC = () => {
                                     d="M4 12a8 8 0 018-8v8H4z"
                                 ></path>
                             </svg>
-                            <span className="text-white text-lg">Chargement de l’image...</span>
+                            <span className="text-white text-lg">{imageLoading ? 'Chargement de l’image...' : "Calcul de l'interpolation en cours..."}</span>
                         </div>
                     </div>
                 )}
-                {imageElement ? (
+                 {isPreviewMode && previewData && imageElement && metadata ? (
+                    <PreviewCanvasComponent
+                        image={imageElement}
+                        metadata={metadata}
+                        previewData={previewData}
+                        uniqueDates={uniqueDates}
+                        selectedDate={selectedDate}
+                        onExit={handleExitPreviewMode}
+                        displayMode={displayMode}
+                    />
+                ) : imageElement ? (
                     <CanvasComponent
                         image={imageElement}
                         points={points}
@@ -468,10 +660,13 @@ const CQ: React.FC = () => {
                         isCaptureMode={isCaptureMode}
                         onCapture={handleCaptureComplete}
                         onCancelCapture={handleCaptureCancel}
+                        selectedPointIndices={selectedPointIndices}
+                        setSelectedPointIndices={setSelectedPointIndices}
+                        onDeleteSelected={handleDeleteSelected}
                     />
                 ) : (
                     <div className="text-center p-8 border-2 border-dashed border-gray-400 rounded-lg bg-white">
-                        <h2 className="text-2xl font-semibold text-gray-700">Bienvenue</h2>
+                        <h2 className="text-2xl font-semibold text-gray-700">Bienvenue Chez CQ Cible</h2>
                         <p className="mt-2 text-gray-500">Veuillez télécharger un fichier CSV et un fichier image à l'aide de la barre d'outils pour commencer.</p>
                     </div>
                 )}
@@ -491,9 +686,28 @@ const CQ: React.FC = () => {
                     onSave={handleSaveCapture}
                     imageData={capturedImage}
                     imageCorrespondante={nextCaptureInfo.correspondante}
-                    captureFilename={nextCaptureInfo.filename}
+                    baseFilename={nextCaptureInfo.baseName}
+                    captures={captures}
                 />
             )}
+            {isCaptureDetailsModalOpen && (
+                <CaptureDetailsModal
+                    isOpen={isCaptureDetailsModalOpen}
+                    onClose={() => setIsCaptureDetailsModalOpen(false)}
+                    captures={captures}
+                    onDeleteCapture={handleDeleteCapture}
+                />
+            )}
+            <DurationModal
+                isOpen={isDurationModalOpen}
+                onClose={() => setDurationModalOpen(false)}
+                onConfirm={handleConfirmExport}
+            />
+            <DurationModal
+                isOpen={isPreviewDurationModalOpen}
+                onClose={() => setPreviewDurationModalOpen(false)}
+                onConfirm={handleConfirmPreview}
+            />
         </div>
     );
 };

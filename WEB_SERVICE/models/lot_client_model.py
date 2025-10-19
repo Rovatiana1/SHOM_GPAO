@@ -3,7 +3,7 @@ from WEB_SERVICE.db import db
 class LotClient(db.Model):
     __tablename__ = "p_lot_client"
 
-    id_lotclient = db.Column(db.BigInteger, primary_key=True)
+    id_lotclient = db.Column(db.BigInteger, primary_key=True, autoincrement=True)  # 🔹 Ajout autoincrement
     id_dossier = db.Column(db.Integer, nullable=True)
     libelle = db.Column(db.String(100), nullable=True)
     id_pers = db.Column(db.Integer, nullable=True)

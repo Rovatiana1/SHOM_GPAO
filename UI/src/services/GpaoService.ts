@@ -1,20 +1,49 @@
+import env from '../config/env';
 import authService from './AuthService';
 
-const API_BASE_URL = 'http://localhost:6003/api/gpao';
+const API_BASE_URL = env.BASE_URL + '/api/gpao';
 
 class GpaoService {
-    private async post(endpoint: string, body: object) {
-        const token = authService.getToken();
-        if (!token) {
-            throw new Error("Utilisateur non authentifié");
+    private async get(endpoint: string, requireAuth: boolean = true) {
+        const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+        };
+
+        // Ajout du token uniquement si requis
+        if (requireAuth) {
+            const token = authService.getToken();
+            if (!token) throw new Error("Utilisateur non authentifié");
+            headers['Authorization'] = `Bearer ${token}`;
         }
-        
+
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+            method: 'GET',
+            headers,
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ message: `Request failed with status ${response.status}` }));
+            throw new Error(errorData.message || 'API request failed');
+        }
+
+        return response.json();
+    }
+
+    private async post(endpoint: string, body: object, requireAuth: boolean = true) {
+        const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+        };
+
+        // Ajout du token uniquement si requis
+        if (requireAuth) {
+            const token = authService.getToken();
+            if (!token) throw new Error("Utilisateur non authentifié");
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
         const response = await fetch(`${API_BASE_URL}${endpoint}`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-            },
+            headers,
             body: JSON.stringify(body),
         });
 
@@ -22,7 +51,7 @@ class GpaoService {
             const errorData = await response.json().catch(() => ({ message: `Request failed with status ${response.status}` }));
             throw new Error(errorData.message || 'API request failed');
         }
-        
+
         const contentType = response.headers.get("content-type");
         if (contentType && contentType.indexOf("application/json") !== -1) {
             return response.json();
@@ -31,11 +60,16 @@ class GpaoService {
         }
     }
 
+    // === 🟢 METHODES GPAO ===
+
+    /**
+     * Récupère les lots client d’un dossier (aucune authentification requise)
+     */
+    getClientLots(idDossier: number) {
+        return this.post('/lot/get-client-lots', { idDossier }, false);
+    }
+
     getCurrentLotForUser(idDossier: number, idEtape: number, idPers: number, idLotClient: number) {
-        // This new endpoint should find if there's an active LDT for the user
-        // and return the lot details along with the LDT start time.
-        
-        // return this.post('/lot/get-current', { _idPers: idPers });
         return this.post('/lot/get-lot', {
             _idDossier: idDossier,
             _idEtape: idEtape,

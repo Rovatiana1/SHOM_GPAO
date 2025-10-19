@@ -6,5 +6,16 @@ export interface User {
   userName: string;
   roles: UserRole[];  
   idEtape: number;
-  idLotClient: number;
+  idLotClient: number | null;
+}
+
+// Nouveau type pour la gestion des utilisateurs
+export interface ManagedUser {
+  id_pers: number;
+  nom: string;
+  prenom: string;
+  ldap_name: string;
+  email: string;
+  id_droit: number;
+  roles: UserRole[];
 }

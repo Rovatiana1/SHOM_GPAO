@@ -1,10 +1,10 @@
-
 // Toolbar.tsx
 import React, { useRef } from 'react';
 import Icons from './Icons';
 import { DateInfo, DisplayMode, Metadata, Point } from '../../../../types/Image';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../../../store/store';
+import Legend from '../../CQ/components/Legend';
 
 interface ToolbarProps {
     onFileChange: (csvFile: File) => void;
@@ -29,6 +29,10 @@ interface ToolbarProps {
     setCsvFile: (file: File | null) => void;
     isValidationMode?: boolean;
     onStartValidation?: () => void;
+    pendingCapturesCount: number;
+    onReviewCaptures: () => void;
+    imageLoading?: boolean;
+    isFetchingSamples?: boolean;
 }
 
 const Toolbar: React.FC<ToolbarProps> = ({
@@ -49,9 +53,20 @@ const Toolbar: React.FC<ToolbarProps> = ({
     setCsvFile,
     isValidationMode,
     onStartValidation,
+    pendingCapturesCount,
+    onReviewCaptures,
+    imageLoading,
+    isFetchingSamples,
 }) => {
     const { isProcessing, loading: processLoading } = useSelector((state: RootState) => state.process);
-    const isDisabled = isProcessing || processLoading || isValidationMode;
+    const { user } = useSelector((state: RootState) => state.auth);
+    const isAdmin = user?.roles.includes('ADMIN');
+
+    // Désactive l'importation si une opération est en cours
+    const isImportDisabled = (isProcessing || processLoading || isValidationMode || !!imageLoading) && !isAdmin;
+    // Désactive les actions de validation si une opération est en cours ou si la validation est déjà active
+    const isActionDisabled = processLoading || isValidationMode || !!imageLoading || isFetchingSamples;
+
 
     const csvInputRef = useRef<HTMLInputElement>(null);
 
@@ -71,7 +86,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
     const isAutoLoaded = autoLoadedFilename && displayName === autoLoadedFilename;
 
     return (
-        <aside className="w-80 bg-white h-[90vh] shadow-lg p-4 flex flex-col overflow-y-auto">
+        <aside className="w-80 bg-white h-[90vh] shadow-lg p-4 flex flex-col overflow-y-auto overflow-x-hidden">
             <h1 className="text-base font-bold text-gray-800 mb-4">Image Editor</h1>
 
             <div className="border-t border-b border-gray-200 py-4">
@@ -103,9 +118,9 @@ const Toolbar: React.FC<ToolbarProps> = ({
                     </div>
                     <button
                         onClick={handleImport}
-                        disabled={!csvFile || isAutoLoaded || isDisabled}
+                        disabled={!csvFile || isAutoLoaded || isImportDisabled}
                         className={`w-full py-2 px-4 rounded-md transition-colors duration-200 flex items-center justify-center gap-2 ${
-                            csvFile && !isAutoLoaded && !isDisabled
+                            csvFile && !isAutoLoaded && !isImportDisabled
                                 ? "bg-green-600 text-white hover:bg-green-700"
                                 : "bg-gray-300 text-gray-500 cursor-not-allowed opacity-50"
                         }`}
@@ -119,13 +134,37 @@ const Toolbar: React.FC<ToolbarProps> = ({
 
             {hasData && (
                 <>
-                    {!isValidationMode && onStartValidation && (
-                         <div className="mt-4 border-b border-gray-200 pb-4">
-                             <button onClick={onStartValidation} className="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 flex items-center justify-center gap-2 transition-colors">
-                                 <i className="fas fa-search-plus"></i> Démarrer la validation
+                    <div className="mt-4 border-b border-gray-200 pb-4 space-y-2">
+                         <button
+                            onClick={onReviewCaptures}
+                            // disabled={isActionDisabled || pendingCapturesCount === 0}
+                            disabled={isActionDisabled}
+                            className="w-full relative bg-cyan-600 text-white py-2 px-4 rounded-md hover:bg-cyan-700 flex items-center justify-center gap-2 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                        >
+                            <Icons.Camera /> Vérifier les Captures
+                            {pendingCapturesCount > 0 && !isActionDisabled && (
+                                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                                    {pendingCapturesCount}
+                                </span>
+                            )}
+                        </button>
+                        {onStartValidation && (
+                             <button onClick={onStartValidation} disabled={isActionDisabled} className="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 flex items-center justify-center gap-2 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed">
+                                 
+                                {isFetchingSamples ? (
+                                    <>
+                                        <i className="fas fa-spinner fa-spin mr-2" />
+                                        <span>Chargement...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <i className="fas fa-search-plus mr-2"></i> Démarrer la validation
+                                    </>
+                                )}
                              </button>
-                         </div>
-                    )}
+                        )}
+                    </div>
+                    <Legend uniqueDates={uniqueDates} selectedDate={selectedDate} onSelectDate={setSelectedDate} />
                 </>
             )}
         </aside>

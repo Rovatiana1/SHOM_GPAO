@@ -2,7 +2,6 @@ from WEB_SERVICE.db import db
 from sqlalchemy.orm import relationship, foreign
 from WEB_SERVICE.models.lot_client_model import LotClient
 from WEB_SERVICE.models.dossier_model import Dossier
-from WEB_SERVICE.models.ldt_model import Ldt
 
 class Lot(db.Model):
     __tablename__ = "p_lot"
@@ -31,14 +30,13 @@ class Lot(db.Model):
     qte_reele = db.Column(db.Integer, nullable=True)
     verifqte = db.Column(db.Boolean, nullable=True)
 
-    # 🔗 Relations avec primaryjoin et foreign()
+    # 🔗 Relations
     lot_client = relationship(
         "LotClient",
         primaryjoin=foreign(id_lotclient) == LotClient.id_lotclient,
         lazy="joined",
         viewonly=True
     )
-
     dossier = relationship(
         "Dossier",
         primaryjoin=foreign(id_dossier) == Dossier.id_dossier,
@@ -46,15 +44,7 @@ class Lot(db.Model):
         viewonly=True
     )
 
-    # ldts = relationship(
-    #     "Ldt",
-    #     primaryjoin=foreign(id_lot) == Ldt.id_lot,
-    #     lazy="joined",
-    #     viewonly=True
-    # )
-
     def to_dict(self):
-        """Convertir l’objet en dictionnaire (utile pour jsonify)"""
         return {
             "idLot": self.id_lot,
             "idLotClient": self.id_lotclient,
@@ -75,9 +65,4 @@ class Lot(db.Model):
             "dureeMax": self.duree_max,
             "qteReele": self.qte_reele,
             "verifQte": self.verifqte,
-
-            # # Relations incluses
-            # "lotClient": self.lot_client.to_dict() if self.lot_client else None,
-            # "dossier": self.dossier.to_dict() if self.dossier else None,
-            # "ldts": [ldt.to_dict() for ldt in self.ldts] if self.ldts else [],
         }

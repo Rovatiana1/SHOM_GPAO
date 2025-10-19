@@ -34,3 +34,14 @@ class User(db.Model):
         if self.id_droit in mapping:
             return [mapping[self.id_droit]]
         return ["USER"]
+    
+    def to_dict(self):
+        return {
+            "id_pers": self.id_pers,
+            "ldap_name": self.ldap_name,
+            "prenom": self.prenom,
+            "nom": self.nom,
+            "email": self.email,
+            "id_droit": self.id_droit,
+            "roles": self.roles
+        }

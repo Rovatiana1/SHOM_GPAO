@@ -141,7 +141,7 @@ const initialState: AuthState = {
 // Async Thunks
 export const loginUser = createAsyncThunk(
   'auth/loginUser',
-  async ({ username, password, idEtape, idLotClient }: { username: string, password: string, idEtape: number, idLotClient: number }, { rejectWithValue }) => {
+  async ({ username, password, idEtape, idLotClient }: { username: string, password: string, idEtape: number, idLotClient: number | null }, { rejectWithValue }) => {
     try {
       await AuthService.login(username, password, idEtape, idLotClient);
       const user = AuthService.getCurrentUser();

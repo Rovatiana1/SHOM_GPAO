@@ -57,6 +57,9 @@ export function getSampledPoints(points: Point[], dates: string[]): Array<{ poin
         throw new Error("Points and dates arrays must have the same length.");
     }
 
+    console.log(`Total de points reçus pour échantillonnage: ${points.length}`);
+    console.log("points sample ==> ", points);
+
     const pointsByDate: Record<string, number[]> = {};
     dates.forEach((date, index) => {
         if (!pointsByDate[date]) {

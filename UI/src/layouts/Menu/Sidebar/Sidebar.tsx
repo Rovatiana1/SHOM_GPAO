@@ -41,7 +41,7 @@ const Sidebar: React.FC<SidebarProps> = ({ user }) => {
         }`}
     >
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto mt-4 px-2 space-y-2">
+      <nav className="flex-1 overflow-y-auto overflow-x-hidden mt-4 px-2 space-y-2">
         {sidebarMenu.map((section) => (
           <div key={section.title}>
             {!collapsed && (

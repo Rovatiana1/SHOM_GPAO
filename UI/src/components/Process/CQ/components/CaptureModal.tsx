@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Icons from "./Icons";
+import { Capture } from "../../../../types/Image";
 
 interface CaptureModalProps {
   isOpen: boolean;
@@ -7,7 +8,8 @@ interface CaptureModalProps {
   onSave: (type: string, nature: string) => void;
   imageData: string;
   imageCorrespondante: string;
-  captureFilename: string;
+  baseFilename: string;
+  captures: Capture[];
 }
 
 const natureOptions: Record<string, string[]> = {
@@ -35,10 +37,21 @@ const CaptureModal: React.FC<CaptureModalProps> = ({
   onSave,
   imageData,
   imageCorrespondante,
-  captureFilename,
+  baseFilename,
+  captures,
 }) => {
   const [type, setType] = useState(typeOptions[0]);
-  const [nature, setNature] = useState(natureOptions[type][0]);
+  const [nature, setNature] = useState(natureOptions[type!]![0]);
+  const [filename, setFilename] = useState('');
+
+  useEffect(() => {
+    const countForType = captures.filter(c => c.type === type).length;
+    const newIndex = (countForType + 1).toString().padStart(3, '0');
+    
+    const suffix = type === 'Anomalie' ? 'AN' : 'MC';
+    setFilename(`${baseFilename}_${suffix}_${newIndex}.jpg`);
+  }, [type, baseFilename, captures]);
+
 
   if (!isOpen) return null;
 
@@ -76,28 +89,6 @@ const CaptureModal: React.FC<CaptureModalProps> = ({
 
           {/* Form */}
           <div className="flex-1 md:w-1/3 space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Image Correspondante
-              </label>
-              <p
-                className="mt-1 block w-full p-2 border border-gray-200 bg-gray-50 rounded-md shadow-sm sm:text-sm text-gray-600 truncate"
-                title={imageCorrespondante}
-              >
-                {imageCorrespondante}
-              </p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Nom de l'image capturée
-              </label>
-              <p
-                className="mt-1 block w-full p-2 border border-gray-200 bg-gray-50 rounded-md shadow-sm sm:text-sm text-gray-600 truncate"
-                title={captureFilename}
-              >
-                {captureFilename}
-              </p>
-            </div>
             <div className="pt-2 border-t">
               <label
                 htmlFor="capture-type"
@@ -135,12 +126,34 @@ const CaptureModal: React.FC<CaptureModalProps> = ({
                 onChange={(e) => setNature(e.target.value)}
                 className="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
               >
-                {natureOptions[type].map((option: string) => (
+                {natureOptions[type!]!.map((option: string) => (
                   <option key={option} value={option}>
                     {option}
                   </option>
                 ))}
               </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Image Correspondante
+              </label>
+              <p
+                className="mt-1 block w-full p-2 border border-gray-200 bg-gray-50 rounded-md shadow-sm sm:text-sm text-gray-600 truncate"
+                title={imageCorrespondante}
+              >
+                {imageCorrespondante}
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Nom de l'image capturée
+              </label>
+              <p
+                className="mt-1 block w-full p-2 border border-gray-200 bg-gray-50 rounded-md shadow-sm sm:text-sm text-gray-600 truncate"
+                title={filename}
+              >
+                {filename}
+              </p>
             </div>
           </div>
         </div>

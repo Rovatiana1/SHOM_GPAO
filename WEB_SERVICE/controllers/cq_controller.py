@@ -85,40 +85,6 @@ def parse_csv_api():
         print(f"Unexpected error: {e}", file=sys.stderr)
         return jsonify({"error": str(e)}), 500
 
-# POST /save_points
-# def save_points():
-#     try:
-#         data = request.get_json(silent=True)
-#         print("data non clean:", data)
-#         metadata = clean_and_validate_metadata(data.get("metadata", {}))
-#         session["metadata"] = json.dumps(metadata)        
-
-#         print("metadata save_points:", metadata)
-#         export_path = build_and_export_csv(data, metadata)
-        
-#         # # exporter le fichier csv dans le repertoire OUT_CQ
-#         # if not export_path or not os.path.exists(export_path):
-#         #     raise FileNotFoundError(f"❌ Échec de l'exportation du CSV à {export_path}")
-        
-        
-#         # print(f"✅ CSV exporté avec succès à {export_path}")
-
-#         # # Envoie le CSV au client
-#         # return send_file(
-#         #     export_path,
-#         #     mimetype="text/csv",
-#         #     as_attachment=True,
-#         #     download_name=os.path.basename(export_path)
-#         # )
-#         return jsonify({
-#             "status": "success",
-#             "message": f"✅ CSV exporté avec succès à {export_path}",
-#             "file_path": export_path
-#         })
-        
-#     except Exception as e:
-#         return jsonify({"status": "error", "message": str(e)}), 500
-    
 
 # POST /save_points
 def save_points():
@@ -340,61 +306,6 @@ def save_points():
         print(f"Fichier '{filename}' envoyé au client depuis '{export_path}' (et conservé sur le serveur).")
 
     return response
-
-# POST /export
-# def export_csv():
-#     data = request.json
-#     points = data.get("points", [])
-#     interval = int(data.get("interval", 5))  # minutes
-#     base_date = data.get("base_date", "1980-07-16")  # format ISO
-
-#     if len(points) < 2:
-#         return jsonify({"error": "Pas assez de points pour interpoler"}), 400
-
-#     # Convertit les points en tableau numpy trié par X
-#     sorted_pts = sorted(points, key=lambda p: p[0])
-#     xs = np.array([p[0] for p in sorted_pts])
-#     ys = np.array([p[1] for p in sorted_pts])
-
-#     # Interpolation linéaire entre les points
-#     x_min, x_max = int(xs[0]), int(xs[-1])
-#     interval_px = (interval / 60) * (x_max - x_min) / ((xs[-1] - xs[0]) / 60)
-#     x_interp = np.arange(x_min, x_max + 1, interval_px)
-#     y_interp = np.interp(x_interp, xs, ys)
-
-#     # Conversion temps + hauteur
-#     origin_time = datetime.strptime(base_date + " 00:00:00", "%Y-%m-%d %H:%M:%S")
-#     total_duration = x_max - x_min
-#     time_step = timedelta(seconds=interval * 60)
-
-#     rows = []
-#     for i, x in enumerate(x_interp):
-#         delta_ratio = (x - x_min) / (x_max - x_min)
-#         timestamp = origin_time + (delta_ratio * (x_max - x_min)) * timedelta(seconds=1)
-#         y_val = y_interp[i]
-#         rows.append([
-#             timestamp.year,
-#             timestamp.month,
-#             timestamp.day,
-#             timestamp.hour,
-#             timestamp.minute,
-#             timestamp.second,
-#             round(float(y_val), 3)
-#         ])
-
-#     # Export CSV dans un fichier en mémoire
-#     output = io.StringIO()
-#     output.write("Année;Mois;Jour;Heure;Minute;Seconde;Hauteur d'eau (m)\n")
-#     for row in rows:
-#         output.write(";".join(map(str, row)).replace('.', ',') + "\n")
-#     output.seek(0)
-
-#     return send_file(
-#         io.BytesIO(output.getvalue().encode("utf-8")),
-#         mimetype="text/csv",
-#         as_attachment=True,
-#         download_name="export.csv"
-#     )
 
 # POST /export
 def export_csv():

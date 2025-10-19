@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import ProfilDropdown from './ProfilDropdown';
 import MenuItem from './MenuItem';
 import { useTranslation } from 'react-i18next';
@@ -24,6 +24,7 @@ const Header: React.FC<{ user: User }> = ({ user }) => {
   const { collapsed } = useAppContext();
   const { t } = useTranslation();
   const dispatch: AppDispatch = useDispatch();
+  const navigate = useNavigate();
   const filteredMenu = getFilteredMenu(user);
 
   const { isProcessing, startTime, currentLot, loading: processLoading } = useSelector((state: RootState) => state.process);
@@ -80,17 +81,42 @@ const Header: React.FC<{ user: User }> = ({ user }) => {
         return 'CQ cible';
       case 4688:
         return 'CQ ISO';
+      case 14356:
+        return 'Reprise CQ';
+      case 15001:
+        return 'SAISIE';
       default:
         return null;
     }
   };
+
+  // 🔹 Fonction de navigation selon le type
+  const navigateToTreatment = (idEtape: number) => {
+    switch (idEtape) {
+      case 4674:
+        navigate('/processing'); // CQ cible
+        break;
+      case 4688:
+        navigate('/processing/cq-iso');
+        break;
+      case 14356:
+        navigate('/processing/reprise-cq');
+        break;
+      case 15001:
+        navigate('/processing/saisie');
+        break;
+      default:
+        navigate('/processing');
+    }
+  };
+
 
   const treatmentType = getTreatmentType(user.idEtape);
 
   return (
     <>
       <header className="bg-white border-b border-gray-200 z-20">
-        <div className="flex items-center justify-between px-4 py-3 max-w-[80vw] mx-auto">
+        <div className="flex items-center justify-between px-4 py-3 max-w-full mx-auto">
           <div className='flex justify-center items-center gap-4'>
             {/* <div className={`flex-shrink-0 flex items-center ${collapsed ? "justify-center" : "justify-between"}`}>
               <Link to="/" className="flex items-center space-x-2 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors">
@@ -101,11 +127,16 @@ const Header: React.FC<{ user: User }> = ({ user }) => {
               </Link>
             </div>
             <div className="text-black">/</div> */}
-
             {treatmentType && (
-              <span className="bg-indigo-100 text-indigo-800 text-lg font-bold px-2.5 py-0.5 rounded-lg">{treatmentType}</span>
+              <span
+                onClick={() => navigateToTreatment(user.idEtape)}
+                className="bg-indigo-100 text-indigo-800 text-lg font-bold px-2.5 py-0.5 rounded-lg cursor-pointer hover:bg-indigo-200 transition-colors"
+                title={`Aller au traitement ${treatmentType}`}
+              >
+                {treatmentType}
+              </span>
             )}
-            {/* <nav className="flex-1 overflow-y-auto px-2 space-y-2">
+            <nav className="flex-1 overflow-y-auto px-2 space-y-2">
               <div className='flex items-center gap-1 justify-center text-xs font-bold'>
                 {filteredMenu.map((section) => (
                   <div key={section.title}>
@@ -115,13 +146,13 @@ const Header: React.FC<{ user: User }> = ({ user }) => {
                   </div>
                 ))}
               </div>
-            </nav> */}
+            </nav>
           </div>
           <div className="flex items-center space-x-4">
             {currentLot && (
               <div className="flex items-center gap-2">
                 <div className="text-sm font-mono bg-gray-100 px-3 py-1 rounded-md text-gray-700 text-center">
-                  {currentLot && currentLot.libelle}
+                  {currentLot && currentLot?.libelle}
                 </div>
                 {/* <div className="text-sm font-mono bg-gray-100 px-3 py-1 rounded-md text-gray-700 w-24 text-center">
                   {formatTime(elapsedTime)}

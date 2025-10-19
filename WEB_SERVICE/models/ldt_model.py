@@ -1,8 +1,7 @@
 from WEB_SERVICE.db import db
-# from WEB_SERVICE.models.lot_model import Lot
-# from WEB_SERVICE.models.lot_client_model import LotClient
-# from WEB_SERVICE.models.dossier_model import Dossier
-
+from WEB_SERVICE.models.lot_model import Lot
+from WEB_SERVICE.models.lot_client_model import LotClient
+from WEB_SERVICE.models.dossier_model import Dossier
 
 class Ldt(db.Model):
     __tablename__ = "p_ldt"
@@ -10,7 +9,6 @@ class Ldt(db.Model):
     id_ldt = db.Column(db.BigInteger, primary_key=True)
     id_pers = db.Column(db.Integer, nullable=True)
 
-    # 🔗 Clés étrangères
     id_dossier = db.Column(db.Integer, db.ForeignKey("p_dossier.id_dossier"), nullable=True)
     id_lotclient = db.Column(db.BigInteger, db.ForeignKey("p_lot_client.id_lotclient"), nullable=True)
     id_lot = db.Column(db.BigInteger, db.ForeignKey("p_lot.id_lot"), nullable=True)
@@ -39,7 +37,6 @@ class Ldt(db.Model):
     h_deb_tmstp = db.Column(db.DateTime, nullable=True)
     h_fin_tmstp = db.Column(db.DateTime, nullable=True)
 
-    # 🔗 Relations
     lot = db.relationship("Lot", backref="ldts", lazy=True)
     lot_client = db.relationship("LotClient", backref="ldts", lazy=True)
     dossier = db.relationship("Dossier", backref="ldts", lazy=True)
@@ -74,8 +71,6 @@ class Ldt(db.Model):
             "dureeLdt": self.duree_ldt,
             "hDebTmstp": self.h_deb_tmstp.isoformat() if self.h_deb_tmstp else None,
             "hFinTmstp": self.h_fin_tmstp.isoformat() if self.h_fin_tmstp else None,
-
-            # 🔗 Relations incluses
             "lot": self.lot.to_dict() if self.lot else None,
             "lotClient": self.lot_client.to_dict() if self.lot_client else None,
             "dossier": self.dossier.to_dict() if self.dossier else None,

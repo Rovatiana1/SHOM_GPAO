@@ -3,14 +3,15 @@ import Toolbar from './components/Toolbar';
 import CanvasComponent from './components/CanvasComponent';
 import ConfirmationModal from './components/ConfirmationModal';
 import ValidationControls from './components/ValidationControls';
-import { DateInfo, DisplayMode, Metadata, Point } from '../../../types/Image';
-// import { parseCsvFile, getFileFromPath, savePoints } from '../../../services/CQService';
+import CaptureReviewModal from './components/CaptureReviewModal';
+import { DateInfo, DisplayMode, Metadata, Point, CaptureReviewItem } from '../../../types/Image';
 import CQService from '../../../services/CQService';
+import GpaoService from '../../../services/GpaoService';
 import { useAppContext } from "../../../context/AppContext";
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../../../store/store';
 import { getSampledPoints } from '../../../services/SamplingService';
-import { rejectToCQ } from '../../../store/slices/processSlice';
+import { completeAndMoveToNextStep, rejectToRepriseCQ, savePointsFinal } from '../../../store/slices/processSlice';
 import ToastNotification, { ToastType } from '../../../utils/components/ToastNotification';
 
 const CQ_ISO: React.FC = () => {
@@ -38,10 +39,17 @@ const CQ_ISO: React.FC = () => {
     const [currentPointIndexInSample, setCurrentPointIndexInSample] = useState(0);
     const [isConfirmationModalVisible, setConfirmationModalVisible] = useState(false);
     const [validationStats, setValidationStats] = useState({ valid: 0, error: 0, pending: 0 });
+    const [isFetchingSamples, setIsFetchingSamples] = useState(false);
+    const [isUpdating, setIsUpdating] = useState(false); // State lock for validation actions
+
+    // States for capture review
+    const [capturesToReview, setCapturesToReview] = useState<CaptureReviewItem[]>([]);
+    const [isCaptureReviewModalOpen, setCaptureReviewModalOpen] = useState(false);
 
     const { setCollapsed } = useAppContext();
     const dispatch: AppDispatch = useDispatch();
     const { currentLot, paths, loading: processLoading } = useSelector((state: RootState) => state.process);
+    const { user } = useSelector((state: RootState) => state.auth);
     const processedLotId = useRef<number | null>(null);
     const isAutoLoading = useRef(false);
 
@@ -52,6 +60,8 @@ const CQ_ISO: React.FC = () => {
         setCurrentPointIndexInSample(0);
         setConfirmationModalVisible(false);
         setValidationStats({ valid: 0, error: 0, pending: 0 });
+        setCapturesToReview([]);
+        setCaptureReviewModalOpen(false);
 
         if (fullReset) {
             setPoints([]);
@@ -71,11 +81,72 @@ const CQ_ISO: React.FC = () => {
         }
     }, []);
 
-    const processParsedData = useCallback((data: { metadata: Metadata; points: [number, number][]; dates: string[]; image: string }) => {
+
+
+    const processParsedData = useCallback(async (data: { metadata: Metadata; points: [number, number][]; dates: string[]; image: string }, idLot: number) => {
         const { metadata, points, dates, image } = data;
+
+        const endInterFileAndStartProdLdt = async () => {
+            if (currentLot && user) {
+                try {
+                    const endLdtParams = {
+                        _idDossier: currentLot?.idDossier,
+                        _idEtape: currentLot?.idEtape!,
+                        _idPers: parseInt(user.userId, 10),
+                        _idLotClient: currentLot?.idLotClient,
+                        _idLot: currentLot?.idLot,
+                        _idTypeLdt: 39,
+                        _qte: 1,
+                    };
+                    await GpaoService.endLdt(endLdtParams);
+                    const startLdtParams = {
+                        _idDossier: currentLot?.idDossier,
+                        _idEtape: currentLot?.idEtape!,
+                        _idPers: parseInt(user.userId, 10),
+                        _idLotClient: currentLot?.idLotClient,
+                        _idLot: currentLot?.idLot,
+                        _idTypeLdt: 0,
+                        _qte: 1,
+                    };
+                    await GpaoService.startNewLdt(startLdtParams);
+                } catch (err) {
+                    console.error("Failed to manage LDTs", err);
+                }
+            }
+        };
+
         setMetadata(metadata);
         setOriginalMetadata(JSON.parse(JSON.stringify(metadata)));
         setCollapsed(true);
+
+        try {
+            const response = await CQService.getCapturesForReview(idLot);
+
+            // CORRECTION : Accéder à la propriété 'images' de la réponse
+            if (response && response.images && Array.isArray(response.images)) {
+                const capturesForReview: CaptureReviewItem[] = response.images.map((c: CaptureReviewItem) => ({
+                    id: c.id,
+                    imageData: c.imageData,
+                    type: c.type,
+                    nature: c.nature,
+                    filename: c.filename,
+                    imageCorrespondante: c.imageCorrespondante,
+                    status: c.status, // Ajouter le statut par défaut
+                    rejectionReason: c.rejectionReason, // Ajouter le statut par défaut
+                }));
+
+                console.log("etototot =>  ", capturesForReview);
+                setCapturesToReview(capturesForReview);
+                console.log(`✅ ${capturesForReview.length} captures chargées pour la revue`);
+            } else {
+                console.warn("getCapturesForReview ne contient pas de tableau images:", response);
+                setCapturesToReview([]);
+            }
+        } catch (captureError) {
+            console.error("Failed to fetch captures for review:", captureError);
+            setError("Impossible de charger les captures à vérifier.");
+            setCapturesToReview([]);
+        }
 
         const baseColors = [
             "#e6194b", "#3cb44b", "#ffe119", "#4363d8", "#f58231",
@@ -101,34 +172,73 @@ const CQ_ISO: React.FC = () => {
                 }))
             );
             setImageLoading(false);
+            endInterFileAndStartProdLdt();
         };
         img.onerror = () => {
-            setError("Erreur lors du chargement de l’image.");
+            setError("Erreur lors du chargement de l'image.");
             setImageLoading(false);
+            endInterFileAndStartProdLdt();
         };
         img.src = `data:image/png;base64,${image}`;
-    }, [setCollapsed]);
+    }, [setCollapsed, user, currentLot]);
+
 
     // --- File Handling and Auto-loading ---
     const handleFileChange = useCallback(async (file: File) => {
         setError(null);
+
+        if (currentLot && user) {
+            try {
+                const startLdtParams = {
+                    _idDossier: currentLot?.idDossier,
+                    _idEtape: currentLot?.idEtape!,
+                    _idPers: parseInt(user.userId, 10),
+                    _idLotClient: currentLot?.idLotClient,
+                    _idLot: currentLot?.idLot,
+                    _idTypeLdt: 39, // Inter-fichier
+                };
+                await GpaoService.startNewLdt(startLdtParams);
+            } catch (err) {
+                const msg = `Erreur au démarrage du chrono inter-fichier: ${err instanceof Error ? err.message : String(err)}`;
+                console.error(msg);
+                setToast({ message: msg, type: 'error' });
+            }
+        }
         setImageLoading(true);
-        if (!currentLot || !currentLot.paths) {
-            setError("Les chemins pour le lot courant ne sont pas définis.");
+        if (!currentLot || !currentLot?.paths || !currentLot?.idLot) {
+            setError("Les chemins ou l'ID pour le lot courant ne sont pas définis.");
             setImageLoading(false);
             return;
         }
         try {
-            const data = await CQService.parseCsvFile(file, currentLot.paths.IMAGE_PATH);
-            processParsedData(data);
+            const data = await CQService.parseCsvFile(file, currentLot?.paths.IMAGE_PATH);
+            await processParsedData(data, currentLot?.lotCQ.idLot);
         } catch (err) {
             console.error(err);
             setError("Impossible de parser le fichier CSV.");
             setImageLoading(false);
+
+            if (currentLot && user) {
+                try {
+                    const endLdtParams = {
+                        _idDossier: currentLot?.idDossier,
+                        _idEtape: currentLot?.idEtape!,
+                        _idPers: parseInt(user.userId, 10),
+                        _idLotClient: currentLot?.idLotClient,
+                        _idLot: currentLot?.idLot,
+                        _idTypeLdt: 39,
+                        _qte: 1,
+                    };
+                    await GpaoService.endLdt(endLdtParams);
+                } catch (endErr) {
+                    console.error("Failed to end inter-file LDT after CSV parse error", endErr);
+                }
+            }
+
         } finally {
             isAutoLoading.current = false;
         }
-    }, [processParsedData, currentLot]);
+    }, [processParsedData, currentLot, user]);
 
     const handleManualFileSelect = (file: File | null) => {
         setAutoLoadedFilename(null);
@@ -137,9 +247,9 @@ const CQ_ISO: React.FC = () => {
     };
 
     useEffect(() => {
-        if (currentLot && paths && currentLot.idLot !== processedLotId.current) {
+        if (currentLot && paths && currentLot?.idLot !== processedLotId.current) {
             resetState(true);
-            processedLotId.current = currentLot.idLot;
+            processedLotId.current = currentLot?.idLot;
             isAutoLoading.current = true;
             const autoLoadAndProcess = async (path: string) => {
                 setError(null);
@@ -159,6 +269,9 @@ const CQ_ISO: React.FC = () => {
             } else {
                 setError("Le chemin d'entrée n'est pas défini pour ce lot.");
             }
+        } else if (!currentLot) {
+            resetState(true);
+            processedLotId.current = null;
         }
     }, [currentLot, paths, resetState]);
 
@@ -180,120 +293,136 @@ const CQ_ISO: React.FC = () => {
     const handleExport = () => setConfirmationModalVisible(true);
 
     const handleConfirmExport = async () => {
-        setConfirmationModalVisible(false);
-        if (!metadata || points.length === 0 || !currentLot) {
-            alert("Données manquants pour l'export.");
+        if (!metadata || points.length === 0 || !currentLot || !currentLot?.paths) {
+            setToast({ message: "Données manquantes pour l'export.", type: 'error' });
             return;
         }
-        try {
-            // const response = await savePoints(points, dates, metadata, 5, currentLot.paths.OUT_CQ_ISO); // Duration is 5 mins for now
-            console.log("metadata for export ==> ", metadata);
-            console.log("points for export ==> ", points);
-            console.log("currentLot.paths.OUT_CQ_ISO for export ==> ", currentLot.paths.OUT_CQ_ISO);
-            const response = await CQService.savePoints(points, dates, metadata, 5, currentLot.paths.OUT_CQ_ISO);
-            const result = await response.json();
-            if (result.status === "success") {
-                alert(`Fichier exporté avec succès : ${result.file_path}`);
-                setIsValidationMode(false); // Reset validation mode
+
+        dispatch(
+            savePointsFinal({
+                idLot: currentLot?.lotCQ.idLot,
+                points,
+                dates,
+                metadata,
+                precision: 5,
+                outPath: currentLot?.paths.OUT_CQ_ISO,
+            })
+        ).then((result) => {
+            if (savePointsFinal.fulfilled.match(result)) {
+                setToast({ message: "Fichier exporté avec succès.", type: "success" });
+                setConfirmationModalVisible(false);
             } else {
-                alert(`Erreur lors de l’export: ${result.message || 'Erreur inconnue'}`);
+                const errorMessage = typeof result.payload === 'string' ? result.payload : "Erreur lors de l’export CSV.";
+                setToast({ message: errorMessage, type: "error" });
             }
-        } catch (e) {
-            const errorMessage = e instanceof Error ? e.message : String(e);
-            alert(`Erreur lors de l’export CSV: ${errorMessage}`);
+        });
+    };
+
+    const handleStartValidation = async () => {
+        if (!currentLot || !currentLot?.lotCQ) {
+            setToast({ message: "ID du lot de CQ manquant.", type: "error" });
+            return;
+        }
+
+        setIsFetchingSamples(true);
+        try {
+            const data = await CQService.getSampledPoints(currentLot?.lotCQ.idLot);
+
+            console.log("data ===> ", data)
+            if (data.status === "success") {
+                setSampledPoints(data.sampled_points);
+                setCurrentPointIndexInSample(0);
+                setIsValidationMode(true);
+                setValidationStats({
+                    valid: 0,
+                    error: 0,
+                    pending: data.total_points,
+                });
+            } else {
+                setToast({ message: data.message, type: "error" });
+            }
+        } catch (error) {
+            console.error("Erreur lors de la récupération des échantillons:", error);
+            const errorMessage =
+                error instanceof Error
+                    ? error.message
+                    : "Une erreur est survenue lors de la récupération des points à valider.";
+            setToast({ message: errorMessage, type: "error" });
+        } finally {
+            setIsFetchingSamples(false);
         }
     };
 
     // --- Validation Logic ---
-    const handleStartValidation = () => {
-        const sample = getSampledPoints(points, dates);
-        if (sample.length === 0) {
-            alert("Aucun point à valider.");
-            return;
-        }
-        setSampledPoints(sample);
-        setCurrentPointIndexInSample(0);
-        setIsValidationMode(true);
-        setValidationStats({ valid: 0, error: 0, pending: sample.length });
-    };
-
-    const handleFinishValidation = () => {
-        setConfirmationModalVisible(true);
-    };
-
     const updatePointStatus = useCallback((status: 'valid' | 'error') => {
         const currentSampledPoint = sampledPoints[currentPointIndexInSample];
-        if (!currentSampledPoint) return;
+        if (!currentSampledPoint) {
+            setIsUpdating(false);
+            return;
+        }
 
-        // Update main points array
-        const updatedPoints = [...points];
-        const pointToUpdate = updatedPoints[currentSampledPoint.originalIndex];
-        if (pointToUpdate) {
-            // Update stats only if status changes
-            if (pointToUpdate.validationStatus !== status) {
-                setValidationStats(prevStats => {
-                    const newStats = { ...prevStats };
-                    if (pointToUpdate.validationStatus === 'valid') newStats.valid--;
-                    if (pointToUpdate.validationStatus === 'error') newStats.error--;
-                    if (pointToUpdate.validationStatus === 'pending') newStats.pending--;
+        setPoints(prevPoints => {
+            const newPoints = [...prevPoints];
+            const pointToUpdate = newPoints[currentSampledPoint.originalIndex];
+            if (!pointToUpdate) return prevPoints;
 
-                    if (status === 'valid') newStats.valid++;
-                    if (status === 'error') newStats.error++;
-
-                    return newStats;
-                });
-            }
+            const oldStatus = pointToUpdate.validationStatus;
             pointToUpdate.validationStatus = status;
-            setPoints(updatedPoints);
-        }
 
-        // Move to next point
+            // Mettre à jour validationStats ici, mais séparément
+            setValidationStats(prev => {
+                const updated = { ...prev };
+                if (oldStatus === 'valid') updated.valid--;
+                else if (oldStatus === 'error') updated.error--;
+                else if (oldStatus === 'pending') updated.pending--;
+
+                if (status === 'valid') updated.valid++;
+                else if (status === 'error') updated.error++;
+
+                return updated;
+            });
+
+            return newPoints;
+        });
+
         if (currentPointIndexInSample < sampledPoints.length - 1) {
             setCurrentPointIndexInSample(prev => prev + 1);
         }
-    }, [currentPointIndexInSample, sampledPoints, points]);
 
-    const handleValidateCurrentPoint = useCallback(() => updatePointStatus('valid'), [updatePointStatus]);
-    const handleErrorCurrentPoint = useCallback(() => updatePointStatus('error'), [updatePointStatus]);
+        setTimeout(() => setIsUpdating(false), 0);
+    }, [currentPointIndexInSample, sampledPoints]);
 
-    const handleNextPoint = () => {
-        if (currentPointIndexInSample < sampledPoints.length - 1) {
-            setCurrentPointIndexInSample(prev => prev + 1);
-        }
-    };
+    const handleValidateCurrentPoint = useCallback(() => {
+        if (isUpdating) return;
+        setIsUpdating(true);
+        updatePointStatus('valid');
+    }, [isUpdating, updatePointStatus]);
 
-    const handlePreviousPoint = () => {
-        if (currentPointIndexInSample > 0) {
-            setCurrentPointIndexInSample(prev => prev - 1);
-        }
-    };
+    const handleErrorCurrentPoint = useCallback(() => {
+        if (isUpdating) return;
+        setIsUpdating(true);
+        updatePointStatus('error');
+    }, [isUpdating, updatePointStatus]);
 
+    const handleNextPoint = () => { if (!isUpdating && currentPointIndexInSample < sampledPoints.length - 1) setCurrentPointIndexInSample(p => p + 1); };
+    const handlePreviousPoint = () => { if (!isUpdating && currentPointIndexInSample > 0) setCurrentPointIndexInSample(p => p - 1); };
 
-    // Keyboard shortcuts effect
+    const handleFinishValidation = () => setConfirmationModalVisible(true);
+
     useEffect(() => {
         if (!isValidationMode) return;
-
         const handleKeyDown = (event: KeyboardEvent) => {
             const key = event.key.toLowerCase();
-            if (key === 'v') {
-                handleValidateCurrentPoint();
-            } else if (key === 'e') {
-                handleErrorCurrentPoint();
-            } else if (key === 'arrowright') {
-                handleNextPoint();
-            } else if (key === 'arrowleft') {
-                handlePreviousPoint();
-            }
+            if (key === 'v') handleValidateCurrentPoint();
+            else if (key === 'e') handleErrorCurrentPoint();
+            else if (key === 'arrowright') handleNextPoint();
+            else if (key === 'arrowleft') handlePreviousPoint();
         };
-
         window.addEventListener('keydown', handleKeyDown);
-        return () => {
-            window.removeEventListener('keydown', handleKeyDown);
-        };
+        return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isValidationMode, handleValidateCurrentPoint, handleErrorCurrentPoint, handleNextPoint, handlePreviousPoint]);
 
     const handleExitValidation = () => {
-        // Reset validation status on all points
         setPoints(prev => prev.map(p => ({ ...p, validationStatus: 'pending' })));
         setIsValidationMode(false);
         setCurrentPointIndexInSample(0);
@@ -301,22 +430,83 @@ const CQ_ISO: React.FC = () => {
 
     const currentValidationPoint = isValidationMode ? sampledPoints[currentPointIndexInSample] : null;
 
-    // const handleRejectToCQ = () => {
-    //     dispatch(rejectToCQ());
-    // };
-
-
-    const handleRejectToCQ = () => {
-        dispatch(rejectToCQ()).then((result) => {
-            if (rejectToCQ.fulfilled.match(result)) {
-                setToast({ message: "Lot rejeté et renvoyé en CQ Cible avec succès.", type: 'success' });
-            } else {
-                const errorMessage = typeof result.payload === 'string' ? result.payload : "Échec du rejet du lot.";
-                setToast({ message: errorMessage, type: 'error' });
-            }
-            setConfirmationModalVisible(false);
-        });
+    const handleRejectToRepriseCQ = () => {
+        if (window.confirm("Êtes-vous sûr de vouloir rejeter ce lot et le renvoyer en Reprise CQ ?")) {
+            dispatch(rejectToRepriseCQ()).then((result) => {
+                if (rejectToRepriseCQ.fulfilled.match(result)) {
+                    setToast({ message: "Lot rejeté et renvoyé en CQ Cible avec succès.", type: 'success' });
+                    setConfirmationModalVisible(false);
+                } else {
+                    const errorMessage = typeof result.payload === 'string' ? result.payload : "Échec du rejet du lot.";
+                    setToast({ message: errorMessage, type: 'error' });
+                }
+            });
+        }
     };
+
+    // --- Capture Review Logic ---
+    const handleReviewCaptures = () => {
+        setCaptureReviewModalOpen(true);
+    };
+
+
+    const handleUpdateCaptureStatus = async (index: number, status: 'valid' | 'rejected', reason?: string) => {
+        const captureToUpdate = capturesToReview[index];
+        if (!captureToUpdate || !currentLot || !currentLot?.lotCQ) {
+            setToast({ message: "Données de capture ou de lot manquantes.", type: 'error' });
+            return;
+        }
+
+        try {
+            await CQService.updateCaptureStatus(
+                captureToUpdate.id,
+                currentLot?.lotCQ.idLot,
+                captureToUpdate.filename,
+                status,
+                reason
+            );
+
+            // Update local state on success
+            setCapturesToReview(prev => {
+                const newCaptures = [...prev];
+                const capture = newCaptures[index];
+                if (capture) {
+                    capture.status = status;
+                    capture.rejectionReason = reason!;
+                }
+                return newCaptures;
+            });
+
+            setToast({ message: `Capture "${captureToUpdate.filename}" mise à jour.`, type: 'success' });
+
+        } catch (e) {
+            console.error("Failed to update capture status:", e);
+            const errorMessage = e instanceof Error ? e.message : "Erreur inconnue";
+            setToast({ message: `Échec de la mise à jour du statut de la capture: ${errorMessage}`, type: 'error' });
+        }
+    };
+
+    const handleFinalizeReview = async () => {
+        if (!currentLot || !currentLot?.lotCQ) {
+            setToast({ message: "ID du lot manquant pour finaliser.", type: 'error' });
+            return;
+        }
+        try {
+            console.log("currentLot ==+> ", currentLot);
+            console.log("Finalizing capture review for lot:", currentLot?.lotCQ.idLot, currentLot?.paths.IN_CQ_ISO, currentLot?.paths.OUT_CQ_ISO);
+            await CQService.finalizeCaptureReview(currentLot?.lotCQ.idLot, currentLot?.paths.OUT_CQ, currentLot?.paths.OUT_CQ_ISO);
+            setToast({ message: "Vérification des captures terminée avec succès. Les fichiers ont été déplacés.", type: 'success' });
+            setCaptureReviewModalOpen(false);
+            setCapturesToReview([]);
+        } catch (e) {
+            console.error("Failed to finalize capture review:", e);
+            const errorMessage = e instanceof Error ? e.message : "Erreur inconnue";
+            setToast({ message: `Échec de la finalisation : ${errorMessage}`, type: 'error' });
+        }
+    };
+
+    const pendingCapturesCount = capturesToReview.filter(c => c.status === 'pending').length;
+
 
     return (
         <div className="flex h-full w-full font-sans">
@@ -344,11 +534,14 @@ const CQ_ISO: React.FC = () => {
                 setCsvFile={handleManualFileSelect}
                 isValidationMode={isValidationMode}
                 onStartValidation={handleStartValidation}
+                pendingCapturesCount={pendingCapturesCount}
+                onReviewCaptures={handleReviewCaptures}
+                imageLoading={imageLoading}
+                isFetchingSamples={isFetchingSamples}
             />
             <main className="relative flex-1 flex items-center justify-center bg-gray-200 p-4 overflow-hidden h-[90vh]">
-                {(processLoading || imageLoading) && (
+                {(imageLoading) && (
                     <div className="absolute inset-0 bg-black bg-opacity-70 backdrop-blur-md flex items-center justify-center z-40">
-                        {/* Loading Spinner */}
                         <div className="flex flex-col items-center">
                             <svg className="animate-spin h-10 w-10 text-white mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -381,7 +574,7 @@ const CQ_ISO: React.FC = () => {
                     />
                 ) : (
                     <div className="text-center p-8 border-2 border-dashed border-gray-400 rounded-lg bg-white">
-                        <h2 className="text-2xl font-semibold text-gray-700">Welcome to CQ ISO</h2>
+                        <h2 className="text-2xl font-semibold text-gray-700">CQ ISO</h2>
                         <p className="mt-2 text-gray-500">Please upload a CSV file to begin the validation process.</p>
                     </div>
                 )}
@@ -397,6 +590,7 @@ const CQ_ISO: React.FC = () => {
                         onFinish={handleFinishValidation}
                         validationStats={validationStats}
                         onExit={handleExitValidation}
+                        isUpdating={isUpdating}
                     />
                 )}
             </main>
@@ -407,7 +601,17 @@ const CQ_ISO: React.FC = () => {
                     onClose={() => setConfirmationModalVisible(false)}
                     validationStats={validationStats}
                     totalPoints={sampledPoints.length}
-                    onReject={handleRejectToCQ}
+                    onReject={handleRejectToRepriseCQ}
+                    isLoading={processLoading}
+                />
+            )}
+            {isCaptureReviewModalOpen && (
+                <CaptureReviewModal
+                    isOpen={isCaptureReviewModalOpen}
+                    onClose={() => setCaptureReviewModalOpen(false)}
+                    captures={capturesToReview}
+                    onUpdateCaptureStatus={handleUpdateCaptureStatus}
+                    onFinalize={handleFinalizeReview}
                 />
             )}
         </div>

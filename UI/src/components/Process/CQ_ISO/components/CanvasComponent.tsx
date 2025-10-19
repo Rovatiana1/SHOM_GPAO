@@ -23,15 +23,15 @@ interface CanvasProps {
     currentPointIndex?: number | null;
 }
 
-const POINT_RADIUS = 7;
+const POINT_RADIUS = 5;
 const HOVER_RADIUS = 15;
 const VALIDATION_ZOOM_SCALE = 5;
 
 // // Conversion cm → px (en supposant 96 dpi = 37.8 px/cm)
 const CM_TO_PX = 37.8;
 const VALIDATION_DIAMETER_CM = 3;
-// const VALIDATION_RADIUS_PX = (VALIDATION_DIAMETER_CM * CM_TO_PX) / 2; // ≈ 56.7px
-const VALIDATION_RADIUS_PX = (VALIDATION_DIAMETER_CM * CM_TO_PX) / 3; // ≈ 56.7px
+const VALIDATION_RADIUS_PX = (VALIDATION_DIAMETER_CM * CM_TO_PX) / 2; // ≈ 56.7px
+// const VALIDATION_RADIUS_PX = (VALIDATION_DIAMETER_CM * CM_TO_PX) / 3; // ≈ 56.7px
 
 // // Conversion cm -> px (300 dpi)
 // const DPI = 300;

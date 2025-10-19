@@ -13,6 +13,7 @@ interface ValidationControlsProps {
     onFinish: () => void;
     validationStats: { valid: number; error: number; pending: number };
     onExit: () => void;
+    isUpdating: boolean; // Prop to control button state from parent
 }
 
 const ValidationControls: React.FC<ValidationControlsProps> = ({
@@ -25,8 +26,10 @@ const ValidationControls: React.FC<ValidationControlsProps> = ({
     onPrevious,
     onFinish,
     validationStats,
-    onExit
+    onExit,
+    isUpdating,
 }) => {
+
     if (!pointData) return null;
 
     const { valid, error } = validationStats;
@@ -62,7 +65,7 @@ const ValidationControls: React.FC<ValidationControlsProps> = ({
                     </div>
                     <div className="border-l pl-6">
                         <p className="text-sm text-gray-500">Index du point: <span className="font-semibold text-gray-800">{pointData.originalIndex + 1}</span></p>
-                        <p className="text-sm text-gray-500">Coordonnées: <span className="font-semibold text-gray-800">X: {pointData.point.x.toFixed(2)}, Y: {pointData.point.y.toFixed(2)}</span></p>
+                        {/* <p className="text-sm text-gray-500">Coordonnées: <span className="font-semibold text-gray-800">X: {pointData.point.x.toFixed(2)}, Y: {pointData.point.y.toFixed(2)}</span></p> */}
                         <p className="text-sm text-gray-500">Progression échantillon: <span className="font-bold text-indigo-600">{currentPointIndex + 1} / {totalPoints}</span></p>
                     </div>
                 </div>
@@ -71,7 +74,7 @@ const ValidationControls: React.FC<ValidationControlsProps> = ({
                 <div className="flex items-center gap-3">
                     <button
                         onClick={onPrevious}
-                        disabled={currentPointIndex === 0}
+                        disabled={currentPointIndex === 0 || isUpdating}
                         className="p-3 rounded-full bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         aria-label="Point précédent"
                     >
@@ -79,7 +82,7 @@ const ValidationControls: React.FC<ValidationControlsProps> = ({
                     </button>
                     <button
                         onClick={onNext}
-                        disabled={currentPointIndex === totalPoints - 1}
+                        disabled={currentPointIndex === totalPoints - 1 || isUpdating}
                         className="p-3 rounded-full bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         aria-label="Point suivant"
                     >
@@ -90,14 +93,16 @@ const ValidationControls: React.FC<ValidationControlsProps> = ({
 
                     <button
                         onClick={onError}
-                        className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors shadow-sm"
+                        disabled={isUpdating}
+                        className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors shadow-sm disabled:bg-gray-400 disabled:cursor-not-allowed"
                         aria-label="Marquer comme erreur (E)"
                     >
                         <X className="w-4 h-4" /> Erreur <kbd className="ml-2 px-2 py-1 text-xs font-semibold text-red-500 bg-white rounded-md border border-red-200">E</kbd>
                     </button>
                     <button
                         onClick={onValidate}
-                        className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors shadow-sm"
+                        disabled={isUpdating}
+                        className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors shadow-sm disabled:bg-gray-400 disabled:cursor-not-allowed"
                         aria-label="Valider le point (V)"
                     >
                         <Check className="w-4 h-4" /> Valide <kbd className="ml-2 px-2 py-1 text-xs font-semibold text-green-500 bg-white rounded-md border border-green-200">V</kbd>
@@ -107,7 +112,7 @@ const ValidationControls: React.FC<ValidationControlsProps> = ({
 
                     <button
                         onClick={onFinish}
-                        disabled={validatedCount !== totalPoints}
+                        disabled={validatedCount !== totalPoints || isUpdating}
                         className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors shadow-sm disabled:bg-gray-400 disabled:cursor-not-allowed"
                         aria-label="Terminer la validation"
                     >

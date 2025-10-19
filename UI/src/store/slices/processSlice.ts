@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import { LotDetails } from "../../types";
 import gpaoService from "../../services/GpaoService";
+import CQService from "../../services/CQService";
 import { RootState } from "../store";
 
 interface ProcessState {
@@ -10,7 +11,7 @@ interface ProcessState {
   loading: boolean;
   error: string | null;
   paths: { in: string; out: string } | null;
-  pauseReason: string | null; // Added to store the selected pause reason label
+  pauseReason: { id: number, label: string } | null;
 }
 
 const initialState: ProcessState = {
@@ -59,35 +60,27 @@ export const getAndStartNextLot = createAsyncThunk(
   async (_, { getState, rejectWithValue }) => {
     const { user } = (getState() as RootState).auth;
 
-    if (!user) {
-      return rejectWithValue("Utilisateur non authentifié.");
-    }
-    if (!user.idEtape) {
-      return rejectWithValue(
-        "Type de traitement (idEtape) non défini pour l'utilisateur."
-      );
-    }
-    if (!user.idLotClient) {
-      return rejectWithValue(
-        "Lot Client (idLotClient) non défini pour l'utilisateur."
-      );
-    }
+    if (!user) return rejectWithValue("Utilisateur non authentifié.");
+    if (!user.idEtape)
+      return rejectWithValue("Type de traitement (idEtape) non défini pour l'utilisateur.");
+    if (!user.idLotClient)
+      return rejectWithValue("Lot Client (idLotClient) non défini pour l'utilisateur.");
+
     try {
       const lotData = await gpaoService.getLot(
-        918, // 005822_LOT6
+        918, // ex: 005822_LOT6
         user.idEtape,
         parseInt(user.userId, 10),
         user.idLotClient
       );
+
       if (!lotData || !lotData.lot) {
-        throw new Error("Aucun lot disponible à traiter.");
+        return rejectWithValue("Aucun lot disponible à traiter.");
       }
-      return {
-        lotData,
-        userEtape: user.idEtape,
-      };
+
+      return { lotData, userEtape: user.idEtape };
     } catch (error: any) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(error.message || "Erreur de récupération du lot.");
     }
   }
 );
@@ -105,11 +98,11 @@ export const pauseCurrentLot = createAsyncThunk(
     try {
       // pour terminer la ligne prod en cours
       const paramsEndLdt = {
-        _idDossier: currentLot.idDossier!,
-        _idEtape: currentLot.idEtape!,
+        _idDossier: currentLot?.idDossier!,
+        _idEtape: currentLot?.idEtape!,
         _idPers: parseInt(user.userId, 10),
-        _idLotClient: currentLot.idLotClient!,
-        _idLot: currentLot.idLot!,
+        _idLotClient: currentLot?.idLotClient!,
+        _idLot: currentLot?.idLot!,
         _idTypeLdt: 0, // 0 pour temps de travail standard
         _qte: 1,
       };
@@ -117,16 +110,16 @@ export const pauseCurrentLot = createAsyncThunk(
 
       // pour créer une nouvelle ligne de temps de type pause
       const paramsStartLdtPause = {
-        _idDossier: currentLot.idDossier!,
-        _idEtape: currentLot.idEtape!,
+        _idDossier: currentLot?.idDossier!,
+        _idEtape: currentLot?.idEtape!,
         _idPers: parseInt(user.userId, 10),
-        _idLotClient: currentLot.idLotClient!,
-        _idLot: currentLot.idLot!,
+        _idLotClient: currentLot?.idLotClient!,
+        _idLot: currentLot?.idLot!,
         _idTypeLdt: reason.id,
         _qte: 1,
       };
       await gpaoService.startNewLdt(paramsStartLdtPause);
-      return reason.label; // Pass label to fulfilled action
+      return reason; // Pass full reason object to fulfilled action
     } catch (err: any) {
       return rejectWithValue(err.message);
     }
@@ -135,33 +128,31 @@ export const pauseCurrentLot = createAsyncThunk(
 
 export const resumeCurrentLot = createAsyncThunk(
   "process/resumeCurrentLot",
-  async (
-    reason: { id: number; label: string },
-    { getState, rejectWithValue }
-  ) => {
-    const { currentLot } = (getState() as RootState).process;
+  async (_, { getState, rejectWithValue }) => {
+    const { currentLot, pauseReason } = (getState() as RootState).process;
     const { user } = (getState() as RootState).auth;
-    if (!currentLot || !user) return rejectWithValue("No lot or user");
-    console.log("resumeCurrentLot called", currentLot, user);
+    if (!currentLot || !user || !pauseReason) return rejectWithValue("Missing data to resume");
+    
     try {
-      // pour terminer la ligne de type pause
+      // End the pause timeline
       const paramsEndLdt = {
-        _idDossier: currentLot.idDossier!,
-        _idEtape: currentLot.idEtape!,
+        _idDossier: currentLot?.idDossier!,
+        _idEtape: currentLot?.idEtape!,
         _idPers: parseInt(user.userId, 10),
-        _idLotClient: currentLot.idLotClient!,
-        _idLot: currentLot.idLot!,
-        _idTypeLdt: reason.id, // 0 pour temps de travail standard
+        _idLotClient: currentLot?.idLotClient!,
+        _idLot: currentLot?.idLot!,
+        _idTypeLdt: pauseReason.id, // Use the stored pause reason ID
         _qte: 1,
       };
       await gpaoService.endLdt(paramsEndLdt);
 
+      // Start a new standard work timeline
       const params = {
-        _idDossier: currentLot.idDossier!,
-        _idEtape: currentLot.idEtape!,
+        _idDossier: currentLot?.idDossier!,
+        _idEtape: currentLot?.idEtape!,
         _idPers: parseInt(user.userId, 10),
-        _idLotClient: currentLot.idLotClient!,
-        _idLot: currentLot.idLot!,
+        _idLotClient: currentLot?.idLotClient!,
+        _idLot: currentLot?.idLot!,
         _idTypeLdt: 0, // 0 for standard work time
       };
       await gpaoService.startNewLdt(params);
@@ -179,18 +170,18 @@ export const completeAndMoveToNextStep = createAsyncThunk(
     if (!currentLot || !user) return rejectWithValue("No lot or user");
     try {
       const endParams = {
-        _idDossier: currentLot.idDossier!,
-        _idEtape: currentLot.idEtape!,
+        _idDossier: currentLot?.idDossier!,
+        _idEtape: currentLot?.idEtape!,
         _idPers: parseInt(user.userId, 10),
-        _idLotClient: currentLot.idLotClient!,
-        _idLot: currentLot.idLot!,
+        _idLotClient: currentLot?.idLotClient!,
+        _idLot: currentLot?.idLot!,
         _idTypeLdt: 0,
         _qte: 1,
       };
       await gpaoService.endLdt(endParams);
 
       const updateLotParams = {
-        _idLot: currentLot.idLot!,
+        _idLot: currentLot?.idLot!,
         _idEtat: 2,
         _qte: 1,
       };
@@ -198,10 +189,10 @@ export const completeAndMoveToNextStep = createAsyncThunk(
 
       if (user.idEtape !== 4688) {
         const nextEtapeParams = {
-          _idDossier: currentLot.idDossier!,
-          _idNextEtape: currentLot.idNextEtape!,
-          _idLotClient: currentLot.idLotClient!,
-          _libelle: currentLot.libelle!,
+          _idDossier: currentLot?.idDossier!,
+          _idNextEtape: currentLot?.idNextEtape!,
+          _idLotClient: currentLot?.idLotClient!,
+          _libelle: currentLot?.libelle!,
           _qte: 1,
         };
         await gpaoService.injectNextEtape(nextEtapeParams);
@@ -212,43 +203,97 @@ export const completeAndMoveToNextStep = createAsyncThunk(
   }
 );
 
-export const rejectToCQ = createAsyncThunk(
-  "process/rejectToCQ",
+export const rejectToRepriseCQ = createAsyncThunk(
+  "process/rejectToRepriseCQ",
   async (_, { getState, rejectWithValue }) => {
     const { currentLot } = (getState() as RootState).process;
     const { user } = (getState() as RootState).auth;
     if (!currentLot || !user) return rejectWithValue("No lot or user");
     try {
       const endParams = {
-        _idDossier: currentLot.idDossier!,
-        _idEtape: currentLot.idEtape!,
+        _idDossier: currentLot?.idDossier!,
+        _idEtape: currentLot?.idEtape!,
         _idPers: parseInt(user.userId, 10),
-        _idLotClient: currentLot.idLotClient!,
-        _idLot: currentLot.idLot!,
+        _idLotClient: currentLot?.idLotClient!,
+        _idLot: currentLot?.idLot!,
         _idTypeLdt: 0,
         _qte: 1,
       };
       await gpaoService.endLdt(endParams);
 
       const updateLotParams = {
-        _idLot: currentLot.idLot!,
+        _idLot: currentLot?.idLot!,
         _idEtat: 6,
         _qte: 1,
       };
       await gpaoService.updateLot(updateLotParams);
 
       const nextEtapeParams = {
-        _idDossier: currentLot.idDossier!,
-        // _idNextEtape: currentLot.idNextEtape!,
-        _idNextEtape: 4674, // rejeter en CQ cible
-        _idLotClient: currentLot.idLotClient!,
-        _libelle: currentLot.libelle!,
+        _idDossier: currentLot?.idDossier!,
+        // _idNextEtape: currentLot?.idNextEtape!,
+        _idNextEtape: 14356, // rejeter en Reprise CQ cible
+        _idLotClient: currentLot?.idLotClient!,
+        _libelle: currentLot?.libelle!,
         _qte: 1,
       };
       await gpaoService.injectNextEtape(nextEtapeParams);
 
     } catch (err: any) {
       return rejectWithValue(err.message);
+    }
+  }
+);
+
+
+export const savePointsFinal = createAsyncThunk(
+  "process/savePointsFinal",
+  async (
+    {
+      idLot,
+      points,
+      dates,
+      metadata,
+      precision,
+      outPath,
+    }: {
+      idLot: number;
+      points: any[];
+      dates: string[];
+      metadata: any;
+      precision: number;
+      outPath: string;
+    },
+    { getState, rejectWithValue, dispatch }
+  ) => {
+    const { user } = (getState() as RootState).auth;
+    const { currentLot } = (getState() as RootState).process;
+
+    if (!user || !currentLot) {
+      return rejectWithValue("Utilisateur ou lot introuvable.");
+    }
+
+    try {
+      // Appel du service CQ
+      const response = await CQService.savePointsFinal(
+        idLot,
+        points,
+        dates,
+        metadata,
+        precision,
+        outPath
+      );
+
+      if (response.status === "success") {
+        // Si succès → on déclenche ensuite l’étape suivante comme dans handleConfirmExport
+        await dispatch(completeAndMoveToNextStep());
+        return response;
+      } else {
+        return rejectWithValue(
+          response.message || "Erreur lors de l’export CSV."
+        );
+      }
+    } catch (error: any) {
+      return rejectWithValue(error.message || "Erreur inattendue lors de l’export CSV.");
     }
   }
 );
@@ -282,6 +327,11 @@ const processSlice = createSlice({
                 in: lot.paths.IN_CQ_ISO,
                 out: lot.paths.OUT_CQ_ISO,
               };
+            } else if (userEtape === 14356) {
+              state.paths = {
+                in: lot.paths.IN_CQ_ISO,
+                out: lot.paths.OUT_CQ,
+              };
             } else {
               state.paths = {
                 in: lot.paths.IN_CQ,
@@ -308,7 +358,12 @@ const processSlice = createSlice({
               in: lot.paths.IN_CQ_ISO,
               out: lot.paths.OUT_CQ_ISO,
             };
-          } else {
+          } else if (userEtape === 14356) {
+              state.paths = {
+                in: lot.paths.IN_CQ_ISO,
+                out: lot.paths.OUT_CQ,
+              };
+            } else {
             state.paths = {
               in: lot.paths.IN_CQ,
               out: lot.paths.OUT_CQ,
@@ -322,7 +377,7 @@ const processSlice = createSlice({
       .addCase(pauseCurrentLot.fulfilled, (state, action) => {
         state.isProcessing = false;
         state.loading = false;
-        state.pauseReason = action.payload; // Set the reason label
+        state.pauseReason = action.payload; // Set the reason object
       })
       .addCase(resumeCurrentLot.fulfilled, (state) => {
         state.isProcessing = true;
@@ -339,7 +394,7 @@ const processSlice = createSlice({
         state.paths = null;
         state.pauseReason = null;
       })
-      .addCase(rejectToCQ.fulfilled, (state) => {
+      .addCase(rejectToRepriseCQ.fulfilled, (state) => {
         state.currentLot = null;
         state.isProcessing = false;
         state.startTime = null;
@@ -347,6 +402,25 @@ const processSlice = createSlice({
         state.error = null;
         state.paths = null;
         state.pauseReason = null;
+      })
+      .addCase(savePointsFinal.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(savePointsFinal.fulfilled, (state, action) => {
+        state.loading = false;
+        state.isProcessing = false;
+        state.currentLot = null;
+        state.paths = null;
+        state.startTime = null;
+        state.error = null;
+        state.pauseReason = null;
+        // Optionnel : tu peux stocker le dernier fichier exporté si besoin
+        console.log("Export CSV réussi :", action.payload);
+      })
+      .addCase(savePointsFinal.rejected, (state, action) => {
+        state.loading = false;
+        state.error = null;
       });
 
     builder

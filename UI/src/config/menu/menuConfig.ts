@@ -3,57 +3,80 @@ import { User, UserRole } from "../../types/Users";
 
 export const menuConfig: MenuSection[] = [
   {
-    title: "Traitement",
+    title: "Administration",
     items: [
       {
-        title: "Traitement",
-        titlePage: "Traitement",
-        icon: "fas fa-tasks", // Traitement
-        to: "/processing",
-        roles: ["ADMIN", "MANAGER", "USER"],
+        title: "Administration",
+        titlePage: "Administration",
+        icon: "fas fa-user-shield",
+        to: "/admin",
+        roles: ["ADMIN"],
       },
     ],
     sidebar: [
       {
-        title: "Traitement",
+        title: "Gestion",
         items: [
           {
-            title: "CQ cible",
-            titlePage: "Contrôle qualité",
-            icon: "fas fa-check-circle",
-            to: "/processing",
-            roles: ["ADMIN", "MANAGER", "USER"],
+            title: "Dashboard",
+            titlePage: "Dashboard Admin",
+            icon: "fas fa-tachometer-alt",
+            to: "/admin",
+            roles: ["ADMIN"],
           },
           {
-            title: "CQ ISO",
-            titlePage: "Contrôle qualité",
-            icon: "fas fa-clipboard-check", // même logique pour CQ
-            to: "/processing/cq-iso",
-            roles: ["ADMIN", "MANAGER", "USER"],
+            title: "Utilisateurs",
+            titlePage: "Gestion des Utilisateurs",
+            icon: "fas fa-users",
+            to: "/admin/users",
+            roles: ["ADMIN"],
           },
-          // {
-          //   title: "Autres traitements",
-          //   titlePage: "Autres traitements",
-          //   icon: "fas fa-cogs", // Paramètres / traitements divers
-          //   to: "/processing/other",
-          //   roles: ["ADMIN", "MANAGER", "USER"],
-          // },
+          {
+            title: "Dossiers",
+            titlePage: "Gestion des Dossiers",
+            icon: "fas fa-folder",
+            to: "/admin/dossiers",
+            roles: ["ADMIN"],
+          },
+          {
+            title: "Étapes",
+            titlePage: "Gestion des Étapes",
+            icon: "fas fa-flag",
+            to: "/admin/etapes",
+            roles: ["ADMIN"],
+          },
+          {
+            title: "États",
+            titlePage: "Gestion des États",
+            icon: "fas fa-shield-alt",
+            to: "/admin/etats",
+            roles: ["ADMIN"],
+          },
+          {
+            title: "Lots Client",
+            titlePage: "Gestion des Lots Client",
+            icon: "fas fa-briefcase",
+            to: "/admin/lot-clients",
+            roles: ["ADMIN"],
+          },
+          {
+            title: "Lots",
+            titlePage: "Gestion des Lots",
+            icon: "fas fa-layer-group",
+            to: "/admin/lots",
+            roles: ["ADMIN"],
+          },
+          {
+            title: "Lignes de Temps",
+            titlePage: "Gestion des LDTs",
+            icon: "fas fa-clock",
+            to: "/admin/ldts",
+            roles: ["ADMIN"],
+          },
         ],
       },
     ],
   },
-  {
-    title: "Tableau de bord",
-    items: [
-      {
-        title: "Tableau de bord",
-        titlePage: "TDB",
-        icon: "fas fa-tachometer-alt", // Dashboard
-        to: "/dashboard",
-        roles: ["ADMIN", "MANAGER", "USER"],
-      },
-    ],
-  }
 ];
 
 

@@ -1,7 +1,7 @@
 import env from "../config/env";
 import { User, UserRole } from "../types/Users";
 
-const API_URL = `http://localhost:6003/api/auth/`;
+const API_URL = `http://localhost:6003/api/auth`;
 
 export interface LoginResponse {
   token: string;
@@ -11,7 +11,7 @@ export interface LoginResponse {
 }
 
 class AuthService {
-  async login(login: string, password: string, idEtape: number, idLotClient: number): Promise<LoginResponse> {
+  async login(login: string, password: string, idEtape: number, idLotClient: number | null): Promise<LoginResponse> {
     const response = await fetch(`${API_URL}/ldaps`, {
       method: "POST",
       headers: {
